@@ -1,0 +1,280 @@
+---
+title: "01_import-netcdf-datafiles"
+author: "Nina Rynne"
+date: '2023-03-02'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+# Install Required Libraries
+# -------------------------------------------------------
+# install.packages("RNetCDF")
+# install.packages("raster")
+# install.packages("sf")
+# install.packages("sp")
+# install.packages("dplyr")
+# install.packages("terra")
+# install.packages("here")
+# install.packages("stringr")
+
+
+# Load Required Libraries
+# -------------------------------------------------------
+
+# Spatial data handling
+library(RNetCDF)
+library(raster)
+library(sf)
+library(sp)
+
+# Data manipulation
+library(dplyr)
+library(stringr)
+
+# Geospatial analysis
+library(terra)
+
+#Code management
+library(here)
+
+```
+
+```{r parameters}
+
+# Parameters for File and Data Management
+# -------------------------------------------------------
+
+# Load lists of parameters from CSV files
+esms <- unlist(read.csv(here("data/parameters/esms.csv"), header = FALSE))
+mems <- unlist(read.csv(here("data/parameters/mems.csv"), header = FALSE))
+element <- unlist(read.csv(here("data/parameters/type.csv"), header = FALSE))
+element_long <- unlist(read.csv(here("data/parameters/type_longname.csv"), header = FALSE))
+obs <- unlist(read.csv(here("data/parameters/observations.csv"), header = FALSE))
+
+
+# Import Shapefile
+# -------------------------------------------------------
+
+shape = st_read(here("data/shapefile/LMEs66.shp"))
+
+```
+
+
+```{r GlobalCatchPerYear_function}
+
+# Function: Get Catch Per Year Global and LME
+# ----------------------------------------
+
+getCatchPerYear <- function(filename, mem_name, esm_name, ele_name) {
+  
+# Define the regex pattern to search filename for start and end date
+  pattern <- ".*_(\\d{4})_(\\d{4})\\.nc"
+
+# Extract start and end years using str_match
+  matches <- str_match(filename, pattern)
+  year_start <- as.integer(matches[1, 2])
+  year_end <- as.integer(matches[1, 3])
+  
+# Create variables year_start and year_end
+  assign("year_start", year_start)
+  assign("year_end", year_end)
+  
+# Get gridded monthly time series
+  gridded_ts <- brick(file.path(filename))
+  crs(gridded_ts) = crs(shape)
+  
+  # Replace any land values with 0
+  gridded_ts[gridded_ts > 1e20] <- 0
+  
+  # Initialize data frame for results
+  all_lmes <- data.frame()
+
+  # START Loop through LMEs
+  # ----------------------------------------
+  for(m in 1:66){
+
+    # crop to LME shape
+    LME <- shape[m,]
+    temp <- crop(gridded_ts, extent(LME))
+    LME_gridded_ts <- mask(temp, LME)
+
+   # 1) multiply each grid cell value by cell area and sum over all grid cells
+      monthly <- cellStats(LME_gridded_ts * (area(LME_gridded_ts)), "sum")
+
+    # 2) create list of years in file
+    year_vector <- rep(year_start:year_end, each = 12)
+
+    # 3) convert to dataframe and add column for years
+    df_yearly <- data.frame(Catch = monthly, Year = year_vector)
+
+    # 4) sum by year
+    total <- df_yearly %>%
+    group_by(Year) %>%
+    summarise(CatchPerYr = sum(Catch))
+
+    # 5) create a vector of results
+    catch_vector <- data.frame("MEMs" = mem_name,
+                               "ESMs" = esm_name,
+                               "Element" = ele_name,
+                               "LME" = LME$LME_NUMBER,
+                               "NAME" = LME$LME_NAME,
+                               "Year" = total$Year,
+                               "Value" = total$CatchPerYr)
+
+    # 6) add LME data to end of current data frame
+    all_lmes <- rbind(all_lmes, catch_vector)
+
+    } # end for loop
+
+  # END Loop through LMEs
+  # ----------------------------------------
+
+   
+  # START Loop through Global
+  # ----------------------------------------
+
+  # 1) multiply each grid cell value by cell area and sum over all grid cells
+  monthly <- cellStats(gridded_ts * (area(gridded_ts)), "sum")
+
+
+  # 2) create list of years in file 
+  year_vector <- rep(year_start:year_end, each = 12)
+  
+  # 3) convert to dataframe and add column for years
+  df_yearly <- data.frame(Catch = monthly, Year = year_vector)
+  
+  # 4) sum by year
+  total <- df_yearly %>%
+    group_by(Year) %>%
+    summarise(CatchPerYr = sum(Catch))
+  
+  # 5) create a vector of results
+  catch_vector <- data.frame("MEMs" = mem_name, 
+                             "ESMs" = esm_name,
+                             "Element" = ele_name,
+                             "LME" = "0",
+                             "NAME" = "Global",
+                             "Year" = total$Year,
+                             "Value" = total$CatchPerYr)
+  
+  # 6) append individual result vector to data frame      
+    all_lmes <- rbind(all_lmes, catch_vector)
+    
+  # END Loop through Global
+  # ----------------------------------------
+    
+    return(all_lmes)
+
+} # end function
+
+
+```
+
+
+```{r import_loop}
+
+
+# Loop through combinations of mems, esms, and elements
+# -------------------------------------------------------
+
+for(i in 1:length(mems)){
+  for(j in 1:length(esms)){
+    for(k in 1:length(element_long)){
+
+      # Get current file paths
+      curr_file <- (list.files(
+        path = here("data/model-output/"),
+        pattern = glob2rx(paste(mems[i], "*", esms[j], "*",element[k], "*",sep = "")),
+        full.names = TRUE))
+
+      # Call the function
+      model_sum_yearly <- getCatchPerYear(filename = curr_file,
+                                                mem_name = mems[i],
+                                                esm_name = esms[j],
+                                                ele_name = element_long[k])
+
+      # Create or append function return to dataframe
+      if(!exists("all_data")){
+        all_data <- model_sum_yearly
+      }else{
+        all_data <- rbind(all_data, model_sum_yearly)
+      }
+
+    } # end variable loop
+  } # end esms loop
+} # end mems loop
+
+```
+
+```{r import-observed-catch}
+
+# Import and Summarize Observational Catch Data
+# -------------------------------------------------------
+
+# Import Watson catch data
+watson_catch <- read.csv(here("data/reconstructed-data/2023-03-02_catch-data_WAT_global_1869-2017.csv"))
+
+# Filter Watson catch data
+watson_filtered <- watson_catch %>%
+  filter(LME != 0) %>%        # remove high seas
+  filter(Year > "1949") %>%   # limit observed range to modelled range
+  filter(Year < "2015")
+
+# Summarize Watson catch data by LME and globally  
+watson_obs_sum_LME <- watson_filtered %>%
+  group_by(Year, LME)%>% 
+  summarise(rec_obs = sum(Reported+IUU+Discards)) %>%
+  mutate("Source" = "WAT")
+
+watson_obs_sum_global <- watson_filtered %>%
+  group_by(Year)%>%
+  summarise(rec_obs = sum(Reported+IUU+Discards)) %>%
+  mutate("LME" = "0", "Source" = "WAT") %>%
+  relocate(LME, .after = Year)
+
+# Combine LME and global summaries
+watson_obs_sum_ALL <- rbind(watson_obs_sum_global, watson_obs_sum_LME)
+
+# Import SAUP catch data
+saup_catch <- read.csv(here("data/reconstructed-data/2023-03-02_catch-data_SAU_global_1950-2019.csv"))
+
+# Filter SAUP catch data
+saup_filtered <- saup_catch %>%
+  filter(Year < "2015")       # limit observed range to modelled range
+
+# Summarise SAUP catch data globally 
+saup_obs_sum_global <- saup_filtered %>%
+  group_by(Year) %>%
+  summarise(rec_obs = sum(tonnes))%>%
+  mutate("LME" = "0", "Source" = "SAU") %>%
+  relocate(LME, .after = Year)
+
+```  
+  
+```{r save}
+
+# Save Model Outputs Yearly
+# -------------------------------------------------------
+write.csv(all_data, here("output/modeloutputs_yearly.csv"), row.names = FALSE)
+
+# Save Reconstructed Catch Data
+# -------------------------------------------------------
+write.csv(watson_obs_sum_global, here("output/reconstructedcatch_WAT_global.csv"), row.names = FALSE)
+write.csv(saup_obs_sum_global, here("output/reconstructedcatch_SAU_global.csv"), row.names = FALSE)
+write.csv(watson_obs_sum_LME, here("output/reconstructedcatch_WAT_LME.csv"), row.names = FALSE)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

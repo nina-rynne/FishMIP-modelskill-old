@@ -1,0 +1,335 @@
+---
+title: "03_generate-plots"
+author: "Nina Rynne"
+output: html_document
+date: "2023-03-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, dev='png', dpi=300, cache=TRUE)
+
+# Libraries and Theme Setup
+# -------------------------------------------------------
+library(ggplot2)
+library(patchwork)
+library(tidyverse)
+library(dplyr)
+library(cowplot)
+library(Metrics)
+library(qualV)
+library(topmodel)
+library(plotrix)
+library(simplecolors)
+library(scales)
+library(here)
+library(forcats)
+library(sf)
+library(terra)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggnewscale)
+library(stringr)
+
+
+my_theme <- theme_bw()+
+  theme(
+    text = element_text(size = 10), # this should be overwritten by the below
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    legend.title=element_text(size = 9), 
+    legend.text=element_text(size = 8),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(), 
+    #legend.key.size = unit(0.1, "cm")
+    )
+
+
+```
+
+```{r arguments}
+
+# Parameters for File and Data Management
+# -------------------------------------------------------
+
+# Load lists of parameters from CSV files
+esms <- unlist(read.csv(here("data/parameters/esms.csv"), header = FALSE))
+mems <- unlist(read.csv(here("data/parameters/mems.csv"), header = FALSE))
+element <- unlist(read.csv(here("data/parameters/type.csv"), header = FALSE))
+element_long <- unlist(read.csv(here("data/parameters/type_longname.csv"), header = FALSE))
+obs <- unlist(read.csv(here("data/parameters/observations.csv"), header = FALSE))
+
+```
+
+```{r load}
+
+# bring in needed dataframes for plotting.
+
+tc_byYear_withObs <- readRDS(here("output/tc_byYear_withObs.rds"))
+mod_tc_byYear <- readRDS(here("output/mod_tc_byYear.rds"))
+stats_byLME_byModel <- readRDS(here("output/stats_byLME_byModel.rds"))
+stats_global_byModel <- readRDS(here("output/stats_global_byModel.rds"))
+stats_byLME_shaped <- readRDS(here("output/stats_byLME_shaped.rds"))
+obs_tc_byYear_global <- readRDS(here("output/obs_tc_byYear_global.rds"))
+
+
+countries_shp <- ne_countries(scale="medium", returnclass = "sf") |> st_transform(crs = "ESRI:54030")
+
+```
+
+```{r boats_CMIP6}
+
+modeldatap1 <- mod_tc_byYear %>%
+  filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
+
+p1 <- ggplot()+
+  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Total Catch \n(million tonnes)")+
+  my_theme+
+  guides(color = guide_legend(title = "BOATS CMIP6", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1950,2015,20))+
+  scale_y_continuous(breaks=seq(0,600,50))
+
+p1
+
+modeldatap2 <- tc_byYear_withObs %>%
+  filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
+
+p2 <- ggplot()+
+  geom_point(data = modeldatap2, aes(x = watson_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  my_theme+
+  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
+  ylab("Predicted Catch \n(million tonnes)")+
+  guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE"), labels = c("GFDL-ESM4.1", "IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    strip.text.y = element_blank())+
+  facet_grid(ESMs ~ .)
+
+p2
+
+(p1 + p2+
+    plot_layout(guides = 'collect')+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_boats_CMIP6.jpg"), dpi = 600, width = 18, height = 9, units = "cm")
+
+
+```
+
+```{r ecoocean_CMIP6}
+
+modeldatap1 <- mod_tc_byYear %>%
+  filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
+
+p1 <- ggplot()+
+  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Total Catch \n(million tonnes)")+
+  my_theme+
+  guides(color = guide_legend(title = "EcoOcean CMIP6", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1950,2015,20))+
+  scale_y_continuous(breaks=seq(0,600,50))
+
+p1
+
+modeldatap2 <- tc_byYear_withObs %>%
+  filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
+
+p2 <- ggplot()+
+  geom_point(data = modeldatap2, aes(x = watson_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  my_theme+
+  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
+  ylab("Predicted Catch \n(million tonnes)")+
+  guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE"), labels = c("GFDL-ESM4.1", "IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    strip.text.y = element_blank())+
+  facet_grid(ESMs ~ .)
+
+p2
+
+(p1 + p2+
+    plot_layout(guides = 'collect')+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_ecoocean_CMIP6.jpg"), dpi = 600, width = 18, height = 9, units = "cm")
+
+
+```
+
+```{r boats_CMIP5}
+
+modeldatap1 <- mod_tc_byYear %>%
+  filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr') 
+obsdatap1 <- obs_tc_byYear_global %>%
+  filter(Year > 1970, Year < 2006)
+
+p1 <- ggplot()+
+  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Total Catch \n(million tonnes)")+
+  my_theme+
+  guides(color = guide_legend(title = "BOATS CMIP5", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("ESM: GFDL-ESM2M", "ESM: IPSL-CMA5-LR", "Obs: Watson & Tidd", "Obs: Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1970,2010,10))+
+  scale_y_continuous(breaks=seq(0,600,50))
+
+p1
+
+modeldatap2 <- tc_byYear_withObs %>%
+  filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr')
+
+p2 <- ggplot()+
+  geom_point(data = modeldatap2, aes(x = watson_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  my_theme+
+  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
+  ylab("Predicted Catch \n(million tonnes)")+
+  guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE"), labels = c("GFDL-ESM2M", "IPSL-CM5A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    strip.text.y = element_blank())+
+  facet_grid(ESMs ~ .)
+
+p2
+
+(p1 + p2+
+    plot_layout(guides = 'collect')+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_boats_CMIP5.jpg"), dpi = 600, width = 18, height = 9, units = "cm")
+
+
+```
+
+```{r ecoocean_CMIP5}
+
+modeldatap1 <- mod_tc_byYear %>%
+  filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr') 
+obsdatap1 <- obs_tc_byYear_global %>%
+  filter(Year > 1970, Year < 2006)
+
+p1 <- ggplot()+
+  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Total Catch \n(million tonnes)")+
+  my_theme+
+  guides(color = guide_legend(title = "EcoOcean CMIP5", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("ESM: GFDL-ESM2M", "ESM: IPSL-CMA5-LR", "Obs: Watson & Tidd", "Obs: Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1970,2010,10))+
+  scale_y_continuous(breaks=seq(0,1600,100))
+
+p1
+
+modeldatap2 <- tc_byYear_withObs %>%
+  filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr')
+
+p2 <- ggplot()+
+  geom_point(data = modeldatap2, aes(x = watson_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  my_theme+
+  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
+  ylab("Predicted Catch \n(million tonnes)")+
+  guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE"), labels = c("GFDL-ESM2M", "IPSL-CM5A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    strip.text.y = element_blank())+
+  facet_grid(ESMs ~ .)
+
+p2
+
+(p1 + p2+
+    plot_layout(guides = 'collect')+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_ecoocean_CMIP5.jpg"), dpi = 600, width = 18, height = 9, units = "cm")
+
+
+```
+
+```{r boxplot_correlation_LME}
+
+corr_data_boats <- stats_byLME_byModel %>%
+  filter(MEMs == 'boats')
+
+p1 <- ggplot(corr_data_boats, aes(x = Model, y = Correlation, fill = Model))+
+  geom_boxplot()+
+  my_theme+
+  scale_fill_manual(values = c("#0571B0", "#92C5DE","#CA0020", "#F49582"), 
+                    labels = c("BOATS GFDL-ESM2M", 
+                               "BOATS GFDL-ESM4", 
+                               "BOATS IPSL-CM5A-LR", 
+                               "BOATS IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+corr_data_ecoocean <- stats_byLME_byModel %>%
+  filter(MEMs == 'ecoocean')
+
+p2 <- ggplot(corr_data_ecoocean, aes(x = Model, y = Correlation, fill = Model))+
+  geom_boxplot()+
+  my_theme+
+  scale_fill_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"),
+                    labels = c("EcoOcean GFDL-ESM2M", 
+                               "EcoOcean GFDL-ESM4",
+                               "EcoOcean IPSL-CM5A-LR",
+                               "EcoOcean IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+
+(p1 / p2+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot-correlation_LME.jpg"), dpi = 600, width = 18, height =18, units="cm")
+
+```
+
+```{r mapplot_correlation}
+
+MEM_names <- c('boats' = "BOATS", 'ecoocean' = "EcoOcean")
+ESM_names <- c('gfdl-esm2m' = "GFDL-ESM2M", 
+               'gfdl-esm4' = "GFDL-ESM4", 
+               'ipsl-cm5a-lr' = "IPSL-CM5A-LR", 
+               'ipsl-cm6a-lr' = "IPSL-CM6A-LR")
+
+
+gg_map_corr <- ggplot() +
+  geom_sf(data = stats_byLME_shaped, aes(fill = Correlation, geometry = geometry), size = NA) +
+  scale_fill_gradient2(low ="red", mid = "white", high = "blue", midpoint = 0, limits = c(-1,1), breaks = c(-1, 0, 1), name = "Correlation\n") +
+  geom_sf(data = countries_shp, fill= "grey93", colour=NA, size=0.15)+
+  theme_bw()+
+  facet_grid(ESMs ~ MEMs,
+             labeller = labeller(ESMs = as_labeller(ESM_names), MEMs = as_labeller(MEM_names)))+
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.title = element_text(hjust = 0.5, size=10, vjust = -2),
+        plot.title.position = "panel",
+        legend.position = "right",
+        legend.direction = "vertical",
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size=8),
+        legend.box.spacing = unit(0.2, "cm")
+        )
+
+
+ggsave(plot = gg_map_corr, filename = here("output/figures/LMEmap_correlation.jpg"), 
+       device = "jpg", dpi = 600, width = 15, height = 12, units="cm")
+
+
+```
+
