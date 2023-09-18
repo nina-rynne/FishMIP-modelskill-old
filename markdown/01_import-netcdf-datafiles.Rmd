@@ -234,7 +234,7 @@ watson_obs_sum_global <- watson_filtered %>%
   relocate(LME, .after = Year)
 
 # Combine LME and global summaries
-watson_obs_sum_ALL <- rbind(watson_obs_sum_global, watson_obs_sum_LME)
+# watson_obs_sum_ALL <- rbind(watson_obs_sum_global, watson_obs_sum_LME)
 
 # Import SAUP catch data
 saup_catch <- read.csv(here("data/reconstructed-data/2023-03-02_catch-data_SAU_global_1950-2019.csv"))
