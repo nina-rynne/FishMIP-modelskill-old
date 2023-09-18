@@ -65,12 +65,23 @@ obs <- unlist(read.csv(here("data/parameters/observations.csv"), header = FALSE)
 
 # bring in needed dataframes for plotting.
 
-tc_byYear_withObs <- readRDS(here("output/tc_byYear_withObs.rds"))
-mod_tc_byYear <- readRDS(here("output/mod_tc_byYear.rds"))
-stats_byLME_byModel <- readRDS(here("output/stats_byLME_byModel.rds"))
-stats_global_byModel <- readRDS(here("output/stats_global_byModel.rds"))
-stats_byLME_shaped <- readRDS(here("output/stats_byLME_shaped.rds"))
-obs_tc_byYear_global <- readRDS(here("output/obs_tc_byYear_global.rds"))
+# modelled and observed catch by year, globally
+tc_byYear_withWAT_global_norm <- readRDS(here("output/tc_byYear_withWAT_global_norm.rds"))
+
+# modelled and observed catch by year, by LME
+tc_byYear_withWAT_LME_norm <- readRDS(here("output/tc_byYear_withWAT_LME_norm.rds"))
+
+# statistical test results by LME
+stats_byLME_byModel_norm <- readRDS(here("output/stats_byLME_byModel_norm.rds"))
+
+# statistical test results, globally
+stats_global_byModel_norm <- readRDS(here("output/stats_global_byModel_norm.rds"))
+
+# statistical test results by LME, adjusted for shape file to use for map plots
+stats_byLME_shaped_norm <- readRDS(here("output/stats_byLME_shaped_norm.rds"))
+
+# observed values only, WAT and SAU
+obs_tc_byYear_global_norm <- readRDS(here("output/obs_tc_byYear_global_norm.rds"))
 
 
 countries_shp <- ne_countries(scale="medium", returnclass = "sf") |> st_transform(crs = "ESRI:54030")
@@ -79,12 +90,12 @@ countries_shp <- ne_countries(scale="medium", returnclass = "sf") |> st_transfor
 
 ```{r boats_CMIP6}
 
-modeldatap1 <- obs_tc_byYear_global %>%
+modeldatap1 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
 
 p1 <- ggplot()+
-  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
-  geom_line(data = obs_tc_byYear_global, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_norm, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs_norm, group = Source, color = Source), linewidth = 1.25)+
   xlab("\nYear")+
   ylab("Total Catch \n(million tonnes)")+
   my_theme+
@@ -95,11 +106,11 @@ p1 <- ggplot()+
 
 p1
 
-modeldatap2 <- tc_byYear_withObs_global %>%
+modeldatap2 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
 
 p2 <- ggplot()+
-  geom_point(data = modeldatap2, aes(x = watson_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  geom_point(data = modeldatap2, aes(x = rec_obs_norm, y = proj_tc_norm, group = ESMs, color = ESMs), show.legend = FALSE)+
   my_theme+
   xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
   ylab("Predicted Catch \n(million tonnes)")+
@@ -123,12 +134,12 @@ ggsave(filename = here("output/figures/plot_boats_CMIP6.jpg"), dpi = 600, width 
 
 ```{r ecoocean_CMIP6}
 
-modeldatap1 <- mod_tc_byYear %>%
+modeldatap1 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
 
 p1 <- ggplot()+
-  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
-  geom_line(data = obs_tc_byYear_global, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_norm, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs_norm, group = Source, color = Source), linewidth = 1.25)+
   xlab("\nYear")+
   ylab("Total Catch \n(million tonnes)")+
   my_theme+
@@ -139,11 +150,11 @@ p1 <- ggplot()+
 
 p1
 
-modeldatap2 <- tc_byYear_withObs %>%
+modeldatap2 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
 
 p2 <- ggplot()+
-  geom_point(data = modeldatap2, aes(x = watson_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  geom_point(data = modeldatap2, aes(x = rec_obs_norm, y = proj_tc_norm, group = ESMs, color = ESMs), show.legend = FALSE)+
   my_theme+
   xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
   ylab("Predicted Catch \n(million tonnes)")+
@@ -167,29 +178,29 @@ ggsave(filename = here("output/figures/plot_ecoocean_CMIP6.jpg"), dpi = 600, wid
 
 ```{r boats_CMIP5}
 
-modeldatap1 <- mod_tc_byYear %>%
+modeldatap1 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr') 
-obsdatap1 <- obs_tc_byYear_global %>%
+obsdatap1 <- obs_tc_byYear_global_norm %>%
   filter(Year > 1970, Year < 2006)
 
 p1 <- ggplot()+
-  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
-  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_norm, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs_norm, group = Source, color = Source), linewidth = 1.25)+
   xlab("\nYear")+
   ylab("Total Catch \n(million tonnes)")+
   my_theme+
   guides(color = guide_legend(title = "BOATS CMIP5", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("ESM: GFDL-ESM2M", "ESM: IPSL-CMA5-LR", "Obs: Watson & Tidd", "Obs: Sea Around Us Project"))+
-  scale_x_continuous(breaks=seq(1970,2010,10))+
-  scale_y_continuous(breaks=seq(0,600,50))
+  scale_x_continuous(breaks=seq(1970,2010,10))#+
+ # scale_y_continuous(breaks=seq(0,600,50))
 
 p1
 
-modeldatap2 <- tc_byYear_withObs %>%
+modeldatap2 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr')
 
 p2 <- ggplot()+
-  geom_point(data = modeldatap2, aes(x = watson_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  geom_point(data = modeldatap2, aes(x = rec_obs_norm, y = proj_tc_norm, group = ESMs, color = ESMs), show.legend = FALSE)+
   my_theme+
   xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
   ylab("Predicted Catch \n(million tonnes)")+

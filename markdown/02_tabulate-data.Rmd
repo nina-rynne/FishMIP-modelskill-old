@@ -84,9 +84,9 @@ tc_byYear_withWAT_LME_norm <- modeloutputs_byYear %>%
 # create table for reconstructed catch by year data
 
 obs_tc_byYear_global_norm <- rbind(reconstructedSAU_byYear_global, reconstructedWAT_byYear_global) %>%
-  group_by(LME, Year, Source) %>%
-  mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year) + 4)]),
-                rec_obs_norm = 100*(rec_obs - obs_start)/obs_start)
+  group_by(LME, Source) %>%
+  mutate(obs_year1 = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
+                rec_obs_norm = 100*(rec_obs - obs_year1)/obs_year1)
 
 
 ```
@@ -230,19 +230,31 @@ stats_byLME_shaped_norm <- merge(
 
 
 ```{r save}
-
 # save needed files for plotting
 
+# modelled and observed catch by year, globally
+saveRDS(object = tc_byYear_withWAT_global_norm, file = here("output/tc_byYear_withWAT_global_norm.rds"))
+
+# modelled and observed catch by year, by LME
+saveRDS(object = tc_byYear_withWAT_LME_norm, file = here("output/tc_byYear_withWAT_LME_norm.rds"))
+
+# statistical test results by LME
 saveRDS(object = stats_byLME_byModel_norm, file = here("output/stats_byLME_byModel_norm.rds"))
+
+# statistical test results, globally
 saveRDS(object = stats_global_byModel_norm, file = here("output/stats_global_byModel_norm.rds"))
+
+# statistical test results by LME, adjusted for shape file to use for map plots
 saveRDS(object = stats_byLME_shaped_norm, file = here("output/stats_byLME_shaped_norm.rds"))
+
+# observed values only, WAT and SAU 
 saveRDS(object = obs_tc_byYear_global_norm, file = here("output/obs_tc_byYear_global_norm.rds"))
 
 ```
 
 ```{r export}
 
-# export stats needed for manuscript tables
+# Export stats needed for creating Excel tables for manuscript
 write.csv(stats_global_byModel_norm, here("output/globalstats.csv"), row.names = TRUE)
 
 
