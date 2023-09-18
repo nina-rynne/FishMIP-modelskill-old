@@ -41,7 +41,19 @@ obs <- unlist(read.csv(here("data/parameters/observations.csv"), header = FALSE)
 # load model output and reconstructed catch yearly data
 
 modeloutputs_byYear <- read.csv(here("output/modeloutputs_yearly.csv"))
+modeloutputs_byYear <- modeloutputs_byYear %>% dplyr::group_by(MEMs, ESMs, Element, LME) %>%
+                                dplyr::mutate(start_val = mean(Value[between(Year, min(Year),min(Year)+5)]),
+                                              Value = 100*(Value - start_val)/start_val)
+
+
+
+#example <- modeloutputs_byYear %>% dplyr::filter(LME == 0 & MEMs == "boats" & ESMs == "gfdl-esm2m", Element=="tc_tonnes_year")
+
+#plot.new()
+#ggplot(data = example) + geom_line(aes(x=Year, y = delta_val))
+
 reconstructedWAT_byYear_global <- read.csv(here("output/reconstructedcatch_WAT_global.csv"))
+
 reconstructedSAU_byYear_global <- read.csv(here("output/reconstructedcatch_SAU_global.csv"))
 reconstructedWAT_byYear_LME <- read.csv(here("output/reconstructedcatch_WAT_LME.csv"))
 
@@ -63,16 +75,24 @@ tc_byYear_withObs_global <- mod_tc_byYear %>%
   filter(Element == "tc_tonnes_year") %>%
   filter(LME == "0") %>%
   left_join(reconstructedWAT_byYear_global, by = join_by(LME, Year)) %>%
-  mutate("Model" = paste(MEMs, ESMs))
+  mutate("Model" = paste(MEMs, ESMs)) %>% 
+  dplyr::group_by(Model) %>% 
+  dplyr::mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year) + 5)]),
+                rec_obs = 100*(rec_obs - obs_start)/obs_start)
 
-tc_byYear_withObs_LME <- modeloutputs_byYear %>%
-  filter(Element == "tc_tonnes_year") %>%
+tc_byYear_withObs_LME <- mod_tc_byYear %>%
+  filter(Element == "tc_tonnes_year" & LME != 0) %>%
   left_join(reconstructedWAT_byYear_LME, by = join_by(LME, Year)) %>%
-  mutate("Model" = paste(MEMs, ESMs))
+  mutate("Model" = paste(MEMs, ESMs)) %>% dplyr::group_by(LME, Model, Source) %>%
+  dplyr::mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year) + 4)]),
+                rec_obs = 100*(rec_obs - obs_start)/obs_start)
 
 # create table for reconstructed catch by year data
 
-obs_tc_byYear_global <- rbind(reconstructedSAU_byYear_global, reconstructedWAT_byYear_global)
+obs_tc_byYear_global <- rbind(reconstructedSAU_byYear_global, reconstructedWAT_byYear_global) %>%
+  dplyr::group_by(LME, Year, Source) %>%
+  dplyr::mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year) + 4)]),
+                rec_obs = 100*(rec_obs - obs_start)/obs_start)
 
 ```
 
