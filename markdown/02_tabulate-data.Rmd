@@ -69,11 +69,11 @@ tc_byYear_withWAT_global_norm <- modeloutputs_byYear %>%
 
 tc_byYear_withWAT_LME_norm <- modeloutputs_byYear %>%
   filter(Element == "tc_tonnes_year") %>% # only total catch
-  filter(LME != 0) %>% # only LME level data
-  left_join(reconstructedWAT_byYear_global, by = join_by(LME, Year)) %>% # add Watson observations
+  filter(LME !=0) %>% # only LME level data
+  left_join(reconstructedWAT_byYear_LME, by = join_by(LME, Year)) %>% # add Watson observations
   mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM combined
   # normalise total catch observations against year 1 (1971 for CMIP5, 1950 for CMIP6)
-  group_by(LME, Model) %>%
+  group_by(LME, Model, Source) %>%
   mutate(obs_year1 = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
          rec_obs_norm = 100*(rec_obs - obs_year1)/obs_year1) %>%
   # normalise total catch projections against year 1 (1971 for CMIP5, 1950 for CMIP6)
@@ -83,14 +83,13 @@ tc_byYear_withWAT_LME_norm <- modeloutputs_byYear %>%
 
 # create table for reconstructed catch by year data
 
-obs_tc_byYear_global <- rbind(reconstructedSAU_byYear_global, reconstructedWAT_byYear_global) %>%
+obs_tc_byYear_global_norm <- rbind(reconstructedSAU_byYear_global, reconstructedWAT_byYear_global) %>%
   group_by(LME, Year, Source) %>%
   mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year) + 4)]),
                 rec_obs_norm = 100*(rec_obs - obs_start)/obs_start)
 
 
 ```
-
 
 
 ```{r LME_stats_function}
@@ -101,7 +100,7 @@ getLMEStats <- function(mem_name, esm_name) {
   
     # filter data by MEM and ESM
     for(k in 1:66) {
-      LMEstats <- tc_byYear_withObs_LME %>%
+      LMEstats <- tc_byYear_withWAT_LME_norm %>%
         filter(MEMs == mem_name,
                ESMs == esm_name,
                LME == k)
@@ -113,12 +112,12 @@ getLMEStats <- function(mem_name, esm_name) {
                                     "LME" = k,
                                     "NAME" = unique(LMEstats$NAME),
                                     "Model" = unique(LMEstats$Model),
-                                    "Correlation" = cor(LMEstats$rec_obs, LMEstats$Value),
-                                    "RMSE" = rmse(LMEstats$rec_obs, LMEstats$Value),
-                                    "AAE" = mae(LMEstats$rec_obs, LMEstats$Value),
-                                    "Bias" = bias(LMEstats$rec_obs, LMEstats$Value),
-                                    "ReliabilityIndex" = GRI(LMEstats$rec_obs, LMEstats$Value),
-                                    "ModellingEfficiency" = NSeff(LMEstats$rec_obs, LMEstats$Value)
+                                    "Correlation" = cor(LMEstats$rec_obs_norm, LMEstats$proj_tc_norm),
+                                    "RMSE" = rmse(LMEstats$rec_obs_norm, LMEstats$proj_tc_norm),
+                                    "AAE" = mae(LMEstats$rec_obs_norm, LMEstats$proj_tc_norm),
+                                    "Bias" = bias(LMEstats$rec_obs_norm, LMEstats$proj_tc_norm),
+                                    "ReliabilityIndex" = GRI(LMEstats$rec_obs_norm, LMEstats$proj_tc_norm),
+                                    "ModellingEfficiency" = NSeff(LMEstats$rec_obs_norm, LMEstats$proj_tc_norm)
                                     )
       
       if(!exists("LMEstats_table")) {
@@ -146,7 +145,7 @@ getLMEStats <- function(mem_name, esm_name) {
 getGlobalStats <- function(mem_name, esm_name) {
 
   # filter data by MEM and ESM
-  globalstats <- tc_byYear_withObs_global %>%
+  globalstats <- tc_byYear_withWAT_global_norm %>%
     filter(MEMs == mem_name,
            ESMs == esm_name,
            Element == "tc_tonnes_year",
@@ -158,12 +157,12 @@ getGlobalStats <- function(mem_name, esm_name) {
                                    "Variable" = "tc_byYear",
                                    "NAME" = "Global",
                                    "Model" = unique(globalstats$Model),
-                                   "Correlation" = cor(globalstats$rec_obs, globalstats$Value),
-                                   "RMSE" = rmse(globalstats$rec_obs, globalstats$Value),
-                                   "AAE" = mae(globalstats$rec_obs, globalstats$Value),
-                                   "Bias" = bias(globalstats$rec_obs, globalstats$Value),
-                                   "ReliabilityIndex" = GRI(globalstats$rec_obs, globalstats$Value),
-                                   "ModellingEfficiency" = NSeff(globalstats$rec_obs, globalstats$Value)
+                                   "Correlation" = cor(globalstats$rec_obs_norm, globalstats$proj_tc_norm),
+                                   "RMSE" = rmse(globalstats$rec_obs_norm, globalstats$proj_tc_norm),
+                                   "AAE" = mae(globalstats$rec_obs_norm, globalstats$proj_tc_norm),
+                                   "Bias" = bias(globalstats$rec_obs_norm, globalstats$proj_tc_norm),
+                                   "ReliabilityIndex" = GRI(globalstats$rec_obs_norm, globalstats$proj_tc_norm),
+                                   "ModellingEfficiency" = NSeff(globalstats$rec_obs_norm, globalstats$proj_tc_norm)
                                    )
   
   return(globalstats_vector)
@@ -185,9 +184,9 @@ for(i in 1:length(mems)){
     # decide how to handle data returned from function
     
     if(!exists("stats_byLME_byModel")){
-        stats_byLME_byModel <- LMEstats_return
+        stats_byLME_byModel_norm <- LMEstats_return
       }else{
-        stats_byLME_byModel <- rbind(stats_byLME_byModel, LMEstats_return)
+        stats_byLME_byModel_norm <- rbind(stats_byLME_byModel_norm, LMEstats_return)
       } # end if/else loop
 
   } # end esm loop
@@ -208,9 +207,9 @@ for(i in 1:length(mems)){
     # decide how to handle data returned from function
     
     if(!exists("stats_global_byModel")){
-        stats_global_byModel <- globalstats_return
+        stats_global_byModel_norm <- globalstats_return
       }else{
-        stats_global_byModel <- rbind(stats_global_byModel, globalstats_return)
+        stats_global_byModel_norm <- rbind(stats_global_byModel_norm, globalstats_return)
       } # end if/else loop
 
   } # end esm loop
@@ -221,9 +220,9 @@ for(i in 1:length(mems)){
 ```{r stats_shapefile}
 
 # merge stats and shapefile for map plotting
-stats_byLME_shaped <- merge(
+stats_byLME_shaped_norm <- merge(
   lme_shapefile,
-  stats_byLME_byModel,
+  stats_byLME_byModel_norm,
   by.y = "NAME",
   by.x = "LME_NAME")
 
@@ -234,24 +233,17 @@ stats_byLME_shaped <- merge(
 
 # save needed files for plotting
 
-saveRDS(object = mod_tc_byYear, file = here("output/mod_tc_byYear.rds"))
-saveRDS(object = stats_byLME_byModel, file = here("output/stats_byLME_byModel.rds"))
-saveRDS(object = stats_global_byModel, file = here("output/stats_global_byModel.rds"))
-saveRDS(object = stats_byLME_shaped, file = here("output/stats_byLME_shaped.rds"))
-saveRDS(object = obs_tc_byYear_global, file = here("output/obs_tc_byYear_global.rds"))
+saveRDS(object = stats_byLME_byModel_norm, file = here("output/stats_byLME_byModel_norm.rds"))
+saveRDS(object = stats_global_byModel_norm, file = here("output/stats_global_byModel_norm.rds"))
+saveRDS(object = stats_byLME_shaped_norm, file = here("output/stats_byLME_shaped_norm.rds"))
+saveRDS(object = obs_tc_byYear_global_norm, file = here("output/obs_tc_byYear_global_norm.rds"))
 
 ```
 
 ```{r export}
 
-# export stats needed for report
-write.csv(stats_global_byModel, here("output/globalstats.csv"), row.names = TRUE)
+# export stats needed for manuscript tables
+write.csv(stats_global_byModel_norm, here("output/globalstats.csv"), row.names = TRUE)
 
-
-```
-
-```{r other}
-
-write.csv(mod_tc_byYear, here("output/tc_byYear.csv"), row.names = TRUE)
 
 ```
