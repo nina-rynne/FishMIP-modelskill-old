@@ -6,10 +6,16 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+
+# Set up R Markdown options
 knitr::opts_chunk$set(echo = FALSE)
 
-#libraries used
+```
 
+```{r libraries}
+
+# Libraries used
+# -------------------------------------------------------
 library(tidyr)
 library(dplyr)
 library(here)
@@ -38,55 +44,59 @@ obs <- unlist(read.csv(here("data/parameters/observations.csv"), header = FALSE)
 
 ```{r load}
 
-# load model output and reconstructed catch yearly data
-
+# Load Model Output and Reconstructed Catch Yearly Data
+# -------------------------------------------------------
 modeloutputs_byYear <- read.csv(here("output/modeloutputs_yearly.csv"))
 reconstructedWAT_byYear_global <- read.csv(here("output/reconstructedcatch_WAT_global.csv"))
 reconstructedSAU_byYear_global <- read.csv(here("output/reconstructedcatch_SAU_global.csv"))
 reconstructedWAT_byYear_LME <- read.csv(here("output/reconstructedcatch_WAT_LME.csv"))
 
-# bring in shapefile for map plotting
+# Load Global Shapefile
 lme_shapefile = st_read(here("data/shapefile/LMEs66.shp")) 
-
 
 ```
 
 ```{r normalised}
 
+# Normalise Underlying Data
+# This section normalises the modelled and observed total catch data
+# for further analysis. Data is normalised against the first 5 years
+# -------------------------------------------------------
+
+# Normalise Global Level Data
 tc_byYear_withWAT_global_norm <- modeloutputs_byYear %>%
   filter(Element == "tc_tonnes_year") %>% # only total catch
   filter(LME == "0") %>% # only global level data
   left_join(reconstructedWAT_byYear_global, by = join_by(LME, Year)) %>% # add Watson observations
-  mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM combined
-  # normalise total catch observations against year 1 (1971 for CMIP5, 1950 for CMIP6)
+  mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM ID combined
+  # normalise total catch observations against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
   group_by(Model) %>%
-  mutate(obs_year1 = rec_obs[Year == min(Year)],
-         rec_obs_norm = 100*(rec_obs - obs_year1)/obs_year1) %>%
-  # normalise total catch projections against year 1 (1971 for CMIP5, 1950 for CMIP6)
-  mutate(proj_year1 = Value[Year == min(Year)],
-         proj_tc_norm = 100*(Value - proj_year1)/proj_year1)
+  mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
+         rec_obs_norm = 100*(rec_obs - obs_start)/obs_start) %>%
+  # normalise total catch projections against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
+  mutate(proj_start = mean(Value[between(Year, min(Year), min(Year)+4)]),
+         proj_tc_norm = 100*(Value - proj_start)/proj_start)
 
-
+# Normalise LME Level Data
 tc_byYear_withWAT_LME_norm <- modeloutputs_byYear %>%
   filter(Element == "tc_tonnes_year") %>% # only total catch
   filter(LME !=0) %>% # only LME level data
   left_join(reconstructedWAT_byYear_LME, by = join_by(LME, Year)) %>% # add Watson observations
-  mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM combined
-  # normalise total catch observations against year 1 (1971 for CMIP5, 1950 for CMIP6)
+  mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM ID combined
+  # normalise total catch observations against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
   group_by(LME, Model, Source) %>%
-  mutate(obs_year1 = rec_obs[Year == min(Year)],
-         rec_obs_norm = 100*(rec_obs - obs_year1)/obs_year1) %>%
-  # normalise total catch projections against year 1 (1971 for CMIP5, 1950 for CMIP6)
-  mutate(proj_year1 = Value[Year == min(Year)],
-         proj_tc_norm = 100*(Value - proj_year1)/proj_year1)
+  mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
+         rec_obs_norm = 100*(rec_obs - obs_start)/obs_start) %>%
+  # normalise total catch projections against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
+  mutate(proj_start = mean(Value[between(Year, min(Year), min(Year)+4)]),
+         proj_tc_norm = 100*(Value - proj_start)/proj_start)
 
 
-# create table for reconstructed catch by year data
-
+# Combine and Normalise Reconstructed Observations Data
 obs_tc_byYear_global_norm <- rbind(reconstructedSAU_byYear_global, reconstructedWAT_byYear_global) %>%
   group_by(LME, Source) %>%
-  mutate(obs_year1 = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
-                rec_obs_norm = 100*(rec_obs - obs_year1)/obs_year1)
+  mutate(obs_start = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
+                rec_obs_norm = 100*(rec_obs - obs_start)/obs_start)
 
 
 ```
@@ -94,18 +104,25 @@ obs_tc_byYear_global_norm <- rbind(reconstructedSAU_byYear_global, reconstructed
 
 ```{r LME_stats_function}
 
-# function to calculate statistical metrics at LME level, by MEM, by ESM
+# Calculate Statistical Metrics Function LME Level
+
+# Function Name: getLMEstats
+# This function calculates statstical metrics by LME/MEM/ESM
+# @param: mem_name Marine Ecosystem Model, a character
+# @param: esm_name Earth System Model, a character
+# @return: a dataframe of statistical metrics by LME/MEM/ESM
+# -------------------------------------------------------
 
 getLMEStats <- function(mem_name, esm_name) {
   
-    # filter data by MEM and ESM
+    # Loop through all 66 LMEs, filtering by MEM & ESM
     for(k in 1:66) {
       LMEstats <- tc_byYear_withWAT_LME_norm %>%
         filter(MEMs == mem_name,
                ESMs == esm_name,
                LME == k)
       
- # create a vector of results
+      # Create a vector of results for specified LME/MEM/ESM
       LMEstats_vector <- data.frame("MEMs" = mem_name,
                                     "ESMs" = esm_name,
                                     "Variable" = "tc_byYear",
@@ -120,38 +137,42 @@ getLMEStats <- function(mem_name, esm_name) {
                                     "ModellingEfficiency" = NSeff(LMEstats$rec_obs_norm, LMEstats$proj_tc_norm)
                                     )
       
+      # Create Dataframe for Results, or Append if Exists
       if(!exists("LMEstats_table")) {
         LMEstats_table <- LMEstats_vector
       }else{
         LMEstats_table <- rbind(LMEstats_table, LMEstats_vector)
-      } # end if/else loop
+      } # End if/else loop
 
-    } # end for loop
+    } # End for loop
  
    return(LMEstats_table)
    
-  } # end function
+  } # End function
 
 ```
 
 ```{r global_stats_function}
 
-#######################################################
-#     NEEDS FIXING
+# Calculate Statistical Metrics Function Global Level
 
-
-# function to calculate statistical metrics at GLOBAL level, by MEM, by ESM
+# Function Name: getGlobalStats
+# This function calculates statstical metrics by MEM/ESM on global level data
+# @param: mem_name Marine Ecosystem Model, a character
+# @param: esm_name Earth System Model, a character
+# @return: a dataframe of statistical metrics by MEM/ESM
+# -------------------------------------------------------
 
 getGlobalStats <- function(mem_name, esm_name) {
 
-  # filter data by MEM and ESM
+  # Filtering by MEM & ESM
   globalstats <- tc_byYear_withWAT_global_norm %>%
     filter(MEMs == mem_name,
            ESMs == esm_name,
            Element == "tc_tonnes_year",
            LME == "0") 
   
-  # create a vector of results
+  # Create a vector of results for specified MEM/ESM
   globalstats_vector <- data.frame("MEMs" = mem_name,
                                    "ESMs" = esm_name,
                                    "Variable" = "tc_byYear",
@@ -173,7 +194,8 @@ getGlobalStats <- function(mem_name, esm_name) {
 
 ```{r call_LME_stats_function}
 
-# call function
+# Call Statistical Metrics Function LME Level
+# -------------------------------------------------------
 
 for(i in 1:length(mems)){
   for(j in 1:length(esms)){
@@ -196,7 +218,8 @@ for(i in 1:length(mems)){
 
 ```{r call_global_stats_function}
 
-# call function 
+# Call Statistical Metrics Function Global Level
+# -------------------------------------------------------
 
 for(i in 1:length(mems)){
   for(j in 1:length(esms)){
@@ -219,7 +242,8 @@ for(i in 1:length(mems)){
 
 ```{r stats_shapefile}
 
-# merge stats and shapefile for map plotting
+# Apply Standard Shapefile to LME Level Statistics
+# -------------------------------------------------------
 stats_byLME_shaped_norm <- merge(
   lme_shapefile,
   stats_byLME_byModel_norm,
@@ -230,7 +254,9 @@ stats_byLME_shaped_norm <- merge(
 
 
 ```{r save}
-# save needed files for plotting
+
+# Save Datafiles for Plotting
+# -------------------------------------------------------
 
 # modelled and observed catch by year, globally
 saveRDS(object = tc_byYear_withWAT_global_norm, file = here("output/tc_byYear_withWAT_global_norm.rds"))
@@ -254,8 +280,8 @@ saveRDS(object = obs_tc_byYear_global_norm, file = here("output/obs_tc_byYear_gl
 
 ```{r export}
 
-# Export stats needed for creating Excel tables for manuscript
+# Export Statistics at Global Level for Manuscript
+# -------------------------------------------------------
 write.csv(stats_global_byModel_norm, here("output/globalstats.csv"), row.names = TRUE)
-
 
 ```

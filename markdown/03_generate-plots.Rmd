@@ -387,6 +387,7 @@ gg_map_corr <- ggplot() +
         legend.box.spacing = unit(0.2, "cm")
         )
 
+gg_map_corr
 
 ggsave(plot = gg_map_corr, filename = here("output/figures/LMEmap_correlation.jpg"), 
        device = "jpg", dpi = 600, width = 15, height = 12, units="cm")
