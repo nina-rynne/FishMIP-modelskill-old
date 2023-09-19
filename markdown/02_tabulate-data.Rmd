@@ -60,10 +60,10 @@ tc_byYear_withWAT_global_norm <- modeloutputs_byYear %>%
   mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM combined
   # normalise total catch observations against year 1 (1971 for CMIP5, 1950 for CMIP6)
   group_by(Model) %>%
-  mutate(obs_year1 = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
+  mutate(obs_year1 = rec_obs[Year == min(Year)],
          rec_obs_norm = 100*(rec_obs - obs_year1)/obs_year1) %>%
   # normalise total catch projections against year 1 (1971 for CMIP5, 1950 for CMIP6)
-  mutate(proj_year1 = mean(Value[between(Year, min(Year), min(Year)+4)]),
+  mutate(proj_year1 = Value[Year == min(Year)],
          proj_tc_norm = 100*(Value - proj_year1)/proj_year1)
 
 
@@ -74,10 +74,10 @@ tc_byYear_withWAT_LME_norm <- modeloutputs_byYear %>%
   mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM combined
   # normalise total catch observations against year 1 (1971 for CMIP5, 1950 for CMIP6)
   group_by(LME, Model, Source) %>%
-  mutate(obs_year1 = mean(rec_obs[between(Year, min(Year), min(Year)+4)]),
+  mutate(obs_year1 = rec_obs[Year == min(Year)],
          rec_obs_norm = 100*(rec_obs - obs_year1)/obs_year1) %>%
   # normalise total catch projections against year 1 (1971 for CMIP5, 1950 for CMIP6)
-  mutate(proj_year1 = mean(Value[between(Year, min(Year), min(Year)+4)]),
+  mutate(proj_year1 = Value[Year == min(Year)],
          proj_tc_norm = 100*(Value - proj_year1)/proj_year1)
 
 
@@ -183,7 +183,7 @@ for(i in 1:length(mems)){
     
     # decide how to handle data returned from function
     
-    if(!exists("stats_byLME_byModel")){
+    if(!exists("stats_byLME_byModel_norm")){
         stats_byLME_byModel_norm <- LMEstats_return
       }else{
         stats_byLME_byModel_norm <- rbind(stats_byLME_byModel_norm, LMEstats_return)
@@ -206,7 +206,7 @@ for(i in 1:length(mems)){
     
     # decide how to handle data returned from function
     
-    if(!exists("stats_global_byModel")){
+    if(!exists("stats_global_byModel_norm")){
         stats_global_byModel_norm <- globalstats_return
       }else{
         stats_global_byModel_norm <- rbind(stats_global_byModel_norm, globalstats_return)
