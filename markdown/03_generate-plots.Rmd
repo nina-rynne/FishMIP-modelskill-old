@@ -30,7 +30,6 @@ library(rnaturalearthdata)
 library(ggnewscale)
 library(stringr)
 
-
 my_theme <- theme_bw()+
   theme(
     text = element_text(size = 10), # this should be overwritten by the below
@@ -40,8 +39,7 @@ my_theme <- theme_bw()+
     legend.title=element_text(size = 9), 
     legend.text=element_text(size = 8),
     panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(), 
-    #legend.key.size = unit(0.1, "cm")
+    panel.grid.minor = element_blank()
     )
 
 
@@ -83,6 +81,11 @@ stats_byLME_shaped_norm <- readRDS(here("output/stats_byLME_shaped_norm.rds"))
 # observed values only, WAT and SAU
 obs_tc_byYear_global_norm <- readRDS(here("output/obs_tc_byYear_global_norm.rds"))
 
+# statistical test results by LME
+stats_byLME_byModel_RAW <- readRDS(here("output/stats_byLME_byModel_RAW.rds"))
+
+# statistical test results, globally
+stats_global_byModel_RAW <- readRDS(here("output/stats_global_byModel_RAW.rds"))
 
 countries_shp <- ne_countries(scale="medium", returnclass = "sf") |> st_transform(crs = "ESRI:54030")
 
@@ -94,10 +97,10 @@ modeldatap1 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
 
 p1 <- ggplot()+
-  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_norm, group = Model, color = Model), linewidth = 1.05)+
-  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs_norm, group = Source, color = Source), linewidth = 1.25)+
+  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_z, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs_z, group = Source, color = Source), linewidth = 1.25)+
   xlab("\nYear")+
-  ylab("Total Catch \n(million tonnes)")+
+  ylab("Delta Catch (%)")+
   my_theme+
   guides(color = guide_legend(title = "BOATS CMIP6", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
@@ -110,10 +113,10 @@ modeldatap2 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
 
 p2 <- ggplot()+
-  geom_point(data = modeldatap2, aes(x = rec_obs_norm, y = proj_tc_norm, group = ESMs, color = ESMs), show.legend = FALSE)+
+  geom_point(data = modeldatap2, aes(x = rec_obs_z, y = proj_tc_z, group = ESMs, color = ESMs), show.legend = FALSE)+
   my_theme+
-  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
-  ylab("Predicted Catch \n(million tonnes)")+
+  xlab("Observed Delta Catch (%) \n(Source: Watson & Tidd)")+
+  ylab("Predicted Delta Catch (%)")+
   guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#0571B0", "#92C5DE"), labels = c("GFDL-ESM4.1", "IPSL-CM6A-LR"))+
   theme(
@@ -138,10 +141,10 @@ modeldatap1 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
 
 p1 <- ggplot()+
-  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_norm, group = Model, color = Model), linewidth = 1.05)+
-  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs_norm, group = Source, color = Source), linewidth = 1.25)+
+  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_z, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs_z, group = Source, color = Source), linewidth = 1.25)+
   xlab("\nYear")+
-  ylab("Total Catch \n(million tonnes)")+
+  ylab("Delta Catch (%)")+
   my_theme+
   guides(color = guide_legend(title = "EcoOcean CMIP6", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
@@ -154,10 +157,10 @@ modeldatap2 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
 
 p2 <- ggplot()+
-  geom_point(data = modeldatap2, aes(x = rec_obs_norm, y = proj_tc_norm, group = ESMs, color = ESMs), show.legend = FALSE)+
+  geom_point(data = modeldatap2, aes(x = rec_obs_z, y = proj_tc_z, group = ESMs, color = ESMs), show.legend = FALSE)+
   my_theme+
-  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
-  ylab("Predicted Catch \n(million tonnes)")+
+  xlab("Observed Delta Catch (%) \n(Source: Watson & Tidd)")+
+  ylab("Predicted Delta Catch (%)")+
   guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#31A354", "#A1D99B"), labels = c("GFDL-ESM4.1", "IPSL-CM6A-LR"))+
   theme(
@@ -184,10 +187,10 @@ obsdatap1 <- obs_tc_byYear_global_norm %>%
   filter(Year > 1970, Year < 2006)
 
 p1 <- ggplot()+
-  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_norm, group = Model, color = Model), linewidth = 1.05)+
-  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs_norm, group = Source, color = Source), linewidth = 1.25)+
+  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_z, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs_z, group = Source, color = Source), linewidth = 1.25)+
   xlab("\nYear")+
-  ylab("Total Catch \n(million tonnes)")+
+  ylab("Delta Catch (%)")+
   my_theme+
   guides(color = guide_legend(title = "BOATS CMIP5", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("ESM: GFDL-ESM2M", "ESM: IPSL-CMA5-LR", "Obs: Watson & Tidd", "Obs: Sea Around Us Project"))+
@@ -200,10 +203,10 @@ modeldatap2 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr')
 
 p2 <- ggplot()+
-  geom_point(data = modeldatap2, aes(x = rec_obs_norm, y = proj_tc_norm, group = ESMs, color = ESMs), show.legend = FALSE)+
+  geom_point(data = modeldatap2, aes(x = rec_obs_z, y = proj_tc_z, group = ESMs, color = ESMs), show.legend = FALSE)+
   my_theme+
-  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
-  ylab("Predicted Catch \n(million tonnes)")+
+  xlab("Observed Delta Catch (%) \n(Source: Watson & Tidd)")+
+  ylab("Predicted Delta Catch (%)")+
   guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#0571B0", "#92C5DE"), labels = c("GFDL-ESM2M", "IPSL-CM5A-LR"))+
   theme(
@@ -230,10 +233,10 @@ obsdatap1 <- obs_tc_byYear_global_norm %>%
   filter(Year > 1970, Year < 2006)
 
 p1 <- ggplot()+
-  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_norm, group = Model, color = Model), linewidth = 1.05)+
-  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs_norm, group = Source, color = Source), linewidth = 1.25)+
+  geom_line(data = modeldatap1, aes(x = Year, y = proj_tc_z, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obsdatap1, aes(x = Year, y = rec_obs_z, group = Source, color = Source), linewidth = 1.25)+
   xlab("\nYear")+
-  ylab("Total Catch \n(million tonnes)")+
+  ylab("Delta Catch (%)")+
   my_theme+
   guides(color = guide_legend(title = "EcoOcean CMIP5", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"), labels = c("ESM: GFDL-ESM2M", "ESM: IPSL-CMA5-LR", "Obs: Watson & Tidd", "Obs: Sea Around Us Project"))+
@@ -246,10 +249,10 @@ modeldatap2 <- tc_byYear_withWAT_global_norm %>%
   filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr')
 
 p2 <- ggplot()+
-  geom_point(data = modeldatap2, aes(x = rec_obs_norm, y = proj_tc_norm, group = ESMs, color = ESMs), show.legend = FALSE)+
+  geom_point(data = modeldatap2, aes(x = rec_obs_z, y = proj_tc_z, group = ESMs, color = ESMs), show.legend = FALSE)+
   my_theme+
-  xlab("Observed Catch (Watson & Tidd) \n(million tonnes)")+
-  ylab("Predicted Catch \n(million tonnes)")+
+  xlab("Observed Delta Catch (%) \n(Source: Watson & Tidd)")+
+  ylab("Predicted Delta Catch (%)")+
   guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
   scale_color_manual(values = c("#31A354", "#A1D99B"), labels = c("GFDL-ESM2M", "IPSL-CM5A-LR"))+
   theme(
@@ -395,3 +398,541 @@ ggsave(plot = gg_map_corr, filename = here("output/figures/LMEmap_correlation.jp
 
 ```
 
+```{r boxplot_RMSE_LME}
+
+ri_data_boats <- stats_byLME_byModel_norm %>%
+  filter(MEMs == 'boats')
+
+p1 <- ggplot(ri_data_boats, aes(x = Model, y = RMSE, fill = Model))+
+  geom_violin()+
+  #scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+  #              labels = trans_format("log10", math_format(10^.x)))+
+  ylab("RMSE\n")+
+  my_theme+
+  scale_fill_manual(values = c("#0571B0", "#92C5DE","#CA0020", "#F49582"), 
+                    labels = c("BOATS GFDL-ESM2M", 
+                               "BOATS GFDL-ESM4", 
+                               "BOATS IPSL-CM5A-LR", 
+                               "BOATS IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+ri_data_ecoocean <- stats_byLME_byModel_norm %>%
+  filter(MEMs == 'ecoocean')
+
+p2 <- ggplot(ri_data_ecoocean, aes(x = Model, y = RMSE, fill = Model))+
+  geom_violin()+
+  #scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+  #              labels = trans_format("log10", math_format(10^.x)))+
+  ylab("RMSE\n")+
+  my_theme+
+  scale_fill_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"),
+                    labels = c("EcoOcean GFDL-ESM2M", 
+                               "EcoOcean GFDL-ESM4",
+                               "EcoOcean IPSL-CM5A-LR",
+                               "EcoOcean IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+
+(p1 / p2+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot-RMSE_LME.jpg"), dpi = 600, width = 18, height =18, units="cm")
+
+```
+
+###########################################################################
+RAW PLOTS BELOW THIS POINT
+###########################################################################
+
+```{r boats_raw_CMIP6}
+
+modeldatap1 <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
+
+p1 <- ggplot()+
+  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Predicted Catch (million tonnes)")+
+  my_theme+
+  guides(color = guide_legend(title = "BOATS CMIP6", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1950,2015,20))#+
+  #scale_y_continuous(breaks=seq(0,600,50))
+
+p1
+
+modeldatap2 <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
+
+p2 <- ggplot()+
+  geom_point(data = modeldatap2, aes(x = rec_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  my_theme+
+  xlab("Observed Catch (million tonnes) \n(Source: Watson & Tidd)")+
+  ylab("Predicted Catch (million tonnues")+
+  guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE"), labels = c("GFDL-ESM4.1", "IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    strip.text.y = element_blank())+
+  facet_grid(ESMs ~ .)
+
+p2
+
+(p1 + p2+
+    plot_layout(guides = 'collect')+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_boats_raw_CMIP6.jpg"), dpi = 600, width = 18, height = 9, units = "cm")
+
+
+```
+
+```{r ecoocean_raw_CMIP6}
+
+modeldatap1 <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
+
+p1 <- ggplot()+
+  geom_line(data = modeldatap1, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Predicted Catch (million tonnes)")+
+  my_theme+
+  guides(color = guide_legend(title = "ecoocean CMIP6", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1950,2015,20))#+
+  #scale_y_continuous(breaks=seq(0,600,50))
+
+p1
+
+modeldatap2 <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
+
+p2 <- ggplot()+
+  geom_point(data = modeldatap2, aes(x = rec_obs/1e6, y = Value/1e6, group = ESMs, color = ESMs), show.legend = FALSE)+
+  my_theme+
+  xlab("Observed Catch (million tonnes) \n(Source: Watson & Tidd)")+
+  ylab("Predicted Catch (million tonnues")+
+  guides(color = guide_legend(title = "Earth System \nModel Forcing:", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#31A354", "#A1D99B"), labels = c("GFDL-ESM4.1", "IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    strip.text.y = element_blank())+
+  facet_grid(ESMs ~ .)
+
+p2
+
+(p1 + p2+
+    plot_layout(guides = 'collect')+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_ecoocean_raw_CMIP6.jpg"), dpi = 600, width = 18, height = 9, units = "cm")
+
+
+```
+
+
+```{r violinplot_RAW_correlation_LME}
+
+corr_data_boats <- stats_byLME_byModel_RAW %>%
+  filter(MEMs == 'boats')
+
+p1 <- ggplot(corr_data_boats, aes(x = Model, y = Correlation, fill = Model))+
+  geom_violin()+
+  geom_boxplot(width=0.15, color="black", fill="white", alpha=0.5)+
+#  geom_jitter(color="black", size=0.4, alpha=0.9, width=0.2) +
+  my_theme+
+  scale_fill_manual(values = c("#0571B0", "#92C5DE","#CA0020", "#F49582"), 
+                    labels = c("BOATS GFDL-ESM2M", 
+                               "BOATS GFDL-ESM4", 
+                               "BOATS IPSL-CM5A-LR", 
+                               "BOATS IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+corr_data_ecoocean <- stats_byLME_byModel_RAW %>%
+  filter(MEMs == 'ecoocean')
+
+p2 <- ggplot(corr_data_ecoocean, aes(x = Model, y = Correlation, fill = Model))+
+  geom_violin()+
+  geom_boxplot(width=0.15, color="black", fill="white", alpha=0.5)+
+  my_theme+
+  scale_fill_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"),
+                    labels = c("EcoOcean GFDL-ESM2M", 
+                               "EcoOcean GFDL-ESM4",
+                               "EcoOcean IPSL-CM5A-LR",
+                               "EcoOcean IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+
+(p1 / p2+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_violin_correlation_RAW_LME.jpg"), dpi = 600, width = 18, height =18, units="cm")
+
+```
+
+```{r boxplot_reliability_RAW_LME}
+
+ri_data_boats <- stats_byLME_byModel_RAW %>%
+  filter(MEMs == 'boats')
+
+p1 <- ggplot(ri_data_boats, aes(x = Model, y = ReliabilityIndex, fill = Model))+
+  geom_violin()+
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)))+
+  ylab("Reliability Index\n")+
+  my_theme+
+  scale_fill_manual(values = c("#0571B0", "#92C5DE","#CA0020", "#F49582"), 
+                    labels = c("BOATS GFDL-ESM2M", 
+                               "BOATS GFDL-ESM4", 
+                               "BOATS IPSL-CM5A-LR", 
+                               "BOATS IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+ri_data_ecoocean <- stats_byLME_byModel_RAW %>%
+  filter(MEMs == 'ecoocean')
+
+p2 <- ggplot(ri_data_ecoocean, aes(x = Model, y = ReliabilityIndex, fill = Model))+
+  geom_violin()+
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)))+
+  ylab("Reliability Index\n")+
+  my_theme+
+  scale_fill_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"),
+                    labels = c("EcoOcean GFDL-ESM2M", 
+                               "EcoOcean GFDL-ESM4",
+                               "EcoOcean IPSL-CM5A-LR",
+                               "EcoOcean IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+
+(p1 / p2+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_reliability_RAW_LME.jpg"), dpi = 600, width = 18, height =18, units="cm")
+
+```
+
+```{r boxplot_RMSE_RAW_LME}
+
+ri_data_boats <- stats_byLME_byModel_norm %>%
+  filter(MEMs == 'boats')
+
+p1 <- ggplot(ri_data_boats, aes(x = Model, y = RMSE, fill = Model))+
+  geom_violin()+
+  #scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+   #             labels = trans_format("log10", math_format(10^.x)))+
+  ylab("RMSE\n")+
+  my_theme+
+  scale_fill_manual(values = c("#0571B0", "#92C5DE","#CA0020", "#F49582"), 
+                    labels = c("BOATS GFDL-ESM2M", 
+                               "BOATS GFDL-ESM4", 
+                               "BOATS IPSL-CM5A-LR", 
+                               "BOATS IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+ri_data_ecoocean <- stats_byLME_byModel_norm %>%
+  filter(MEMs == 'ecoocean')
+
+p2 <- ggplot(ri_data_ecoocean, aes(x = Model, y = RMSE, fill = Model))+
+  geom_violin()+
+  #scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+  #              labels = trans_format("log10", math_format(10^.x)))+
+  ylab("RMSE\n")+
+  my_theme+
+  scale_fill_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"),
+                    labels = c("EcoOcean GFDL-ESM2M", 
+                               "EcoOcean GFDL-ESM4",
+                               "EcoOcean IPSL-CM5A-LR",
+                               "EcoOcean IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+
+(p1 / p2+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot-RMSE_RAW_LME.jpg"), dpi = 600, width = 18, height =18, units="cm")
+
+```
+
+###########################################################################
+DIVIDED BY MEAN OF OBSERVATIONS PLOTS BELOW THIS POINT
+###########################################################################
+
+
+```{r avgobs}
+
+modeldatap1 <- tc_byYear_withWAT_global_norm %>%
+  filter(LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
+
+obs_mean <- obs_tc_byYear_global_norm %>%
+  filter(Source == "WAT") %>%
+  summarise(WAT_mean = mean(rec_obs/1e6))
+
+p1 <- ggplot()+
+  geom_line(data = modeldatap1, aes(x = Year, y = (Value/1e6)/obs_mean$WAT_mean, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = (rec_obs/1e6)/obs_mean$WAT_mean, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Projected divided by avg of obs")+
+  my_theme+
+  #guides(color = guide_legend(title = "BOATS CMIP6", override.aes = list(size = 3)))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#31A354", "#A1D99B", "#CA0020", "#F49582"), labels = c("BOATS GFDL-ESM4.1", "BOATS IPSL-CMA6-LR", "EcoOcean GFDL-ESM4.1", "EcoOcean IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1950,2015,20))#+
+  #scale_y_continuous(breaks=seq(0,600,50))
+
+p1
+
+modeldatap2 <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == 'boats', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
+
+p2 <- ggplot()+
+  geom_line(data = modeldatap2, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Predicted Catch (million tonnes)")+
+  my_theme+
+  guides(color = FALSE)+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#CA0020", "#F49582"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1950,2015,20))#+
+  #scale_y_continuous(breaks=seq(0,600,50))
+
+modeldatap3 <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == 'ecoocean', LME == 0, ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr') 
+
+p3 <- ggplot()+
+  geom_line(data = modeldatap3, aes(x = Year, y = Value/1e6, group = Model, color = Model), linewidth = 1.05)+
+  geom_line(data = obs_tc_byYear_global_norm, aes(x = Year, y = rec_obs/1e6, group = Source, color = Source), linewidth = 1.25)+
+  xlab("\nYear")+
+  ylab("Predicted Catch (million tonnes)")+
+  my_theme+
+  guides(color = FALSE)+
+  scale_color_manual(values = c("#31A354", "#A1D99B", "#CA0020", "#F49582"), labels = c("GFDL-ESM4.1", "IPSL-CMA6-LR", "Watson & Tidd", "Sea Around Us Project"))+
+  scale_x_continuous(breaks=seq(1950,2015,20))#+
+  #scale_y_continuous(breaks=seq(0,600,50))
+
+(p1 + (p2/p3)+
+    plot_layout(guides = 'collect')+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_MEMS_avgobs_CMIP6.jpg"), dpi = 600, width = 18, height = 9, units = "cm")
+
+```
+
+```{r taylordiagram}
+
+library(openair)
+
+taylor_table_boats <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == "boats") %>%
+  mutate(rec_obs = rec_obs/1e6) %>%
+  mutate(Value = Value/1e6)
+  
+taylor_table_ecoocean <- tc_byYear_withWAT_global_norm %>%
+  filter(MEMs == "ecoocean") %>%
+  mutate(rec_obs = rec_obs/1e6) %>%
+  mutate(Value = Value/1e6)
+
+jpeg(filename = here("output/figures/plot_taylor_diagram_boats.jpg"), width = 18, height = 9, units = "cm", res = 600)
+plot_tay_boats <- TaylorDiagram(taylor_table_boats,
+              obs = "rec_obs",
+              mod = "Value",
+              group = "Model")
+dev.off()
+
+jpeg(filename = here("output/figures/plot_taylor_diagram_ecoocean.jpg"), width = 18, height = 9, units = "cm", res = 600)
+plot_tay_ecoocean <- TaylorDiagram(taylor_table_ecoocean,
+              obs = "rec_obs",
+              mod = "Value",
+              group = "Model")
+dev.off()
+
+```
+
+```{r correlation_line}
+
+corr_point <- stats_byLME_byModel_RAW %>%
+  filter(between(LME, 1, 66))
+
+p1 <- ggplot()+
+  geom_line(data = corr_point, aes(x = Correlation, y = LME, group = LME), color = "grey")+
+  geom_point(data = corr_point, aes(x = Correlation, y = LME, color = Model))+
+  my_theme+
+  scale_y_continuous(name = "LMEs\n",
+                     labels=seq(1,66,1),
+                     breaks=seq(1,66,1))+
+  scale_x_continuous(name = "\nCorrelation",
+                     limits = c(-1, 1),
+                     labels = seq(-1, 1, 0.5),
+                     breaks = seq(-1, 1, 0.5))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#31A354", "#A1D99B",
+                                "#CA0020", "#F49582", "#E6550D", "#FDBE85"),
+                     labels = c("BOATS GFDL-ESM4.1", "BOATS IPSL-CMA6-LR", "EcoOcean GFDL-ESM4.1",
+                                "EcoOcean IPSL-CMA6-LR", "BOATS GFDL-ESM2M", "BOATS IPSL-CM5A-LR",
+                                "EcoOcean GFDL-ESM2M", "EcoOcean IPSL-CM5A-LR"))
+
+p1
+
+ggsave(filename = here("output/figures/plot_corr_segmentline_ALL.jpg"), dpi = 600, width = 18, height = 18, units = "cm")
+
+```
+
+```{r corr_line_CMIP6}
+
+corr_point <- stats_byLME_byModel_RAW %>%
+  filter(between(LME, 1, 66)) %>%
+  filter(ESMs == 'gfdl-esm4' | ESMs == 'ipsl-cm6a-lr')
+
+p1 <- ggplot()+
+  geom_line(data = corr_point, aes(x = Correlation, y = LME, group = LME), color = "grey")+
+  geom_point(data = corr_point, aes(x = Correlation, y = LME, color = Model))+
+  my_theme+
+  scale_y_continuous(name = "LMEs\n",
+                     labels=seq(1,66,1),
+                     breaks=seq(1,66,1))+
+  scale_x_continuous(name = "\nCorrelation",
+                     limits = c(-1, 1),
+                     labels = seq(-1, 1, 0.5),
+                     breaks = seq(-1, 1, 0.5))+
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#31A354", "#A1D99B"),
+                     labels = c("BOATS GFDL-ESM4.1", "BOATS IPSL-CMA6-LR", "EcoOcean GFDL-ESM4.1",
+                                "EcoOcean IPSL-CMA6-LR"))
+
+p1
+
+ggsave(filename = here("output/figures/plot_corr_segmentline_CMIP6.jpg"), dpi = 600, width = 18, height = 18, units = "cm")
+
+```
+
+```{r corr_line_CMIP5}
+
+corr_point <- stats_byLME_byModel_RAW %>%
+  filter(between(LME, 1, 66)) %>%
+  filter(ESMs == 'gfdl-esm2m' | ESMs == 'ipsl-cm5a-lr')
+
+p1 <- ggplot()+
+  geom_line(data = corr_point, aes(x = Correlation, y = LME, group = LME), color = "grey")+
+  geom_point(data = corr_point, aes(x = Correlation, y = LME, color = Model))+
+  my_theme+
+  scale_y_continuous(name = "LMEs\n",
+                     labels=seq(1,66,1),
+                     breaks=seq(1,66,1))+
+  scale_x_continuous(name = "\nCorrelation",
+                     limits = c(-1, 1),
+                     labels = seq(-1, 1, 0.5),
+                     breaks = seq(-1, 1, 0.5))+
+  scale_color_manual(values = c("#CA0020", "#F49582", "#E6550D", "#FDBE85"),
+                     labels = c("BOATS GFDL-ESM2M", "BOATS IPSL-CM5A-LR",
+                                "EcoOcean GFDL-ESM2M", "EcoOcean IPSL-CM5A-LR"))
+
+p1
+
+ggsave(filename = here("output/figures/plot_corr_segmentline_CMIP5.jpg"), dpi = 600, width = 18, height = 18, units = "cm")
+
+```
+
+```{r alternative_violin}
+
+library(ggstatsplot)
+
+jpeg(filename = here("output/figures/plot_corr_vio2.jpg"), width = 18, height = 9, units = "cm", res = 600)
+corr_vio2 <- ggbetweenstats(
+  data = corr_data_boats,
+  x = Model,
+  y = Correlation,
+  package = "RColorBrewer",
+  palette = "Dark2",
+  caption = NULL,
+  title = NULL,
+  subtitle = NULL,
+  pairwise.display = "none",
+  results.subtitle = FALSE
+)
+dev.off()
+
+jpeg(filename = here("output/figures/plot_corr_vio3.jpg"), width = 18, height = 9, units = "cm", res = 600)
+corr_vio3 <- ggbetweenstats(
+  data = corr_data_ecoocean,
+  x = Model,
+  y = Correlation,
+  package = "RColorBrewer",
+  palette = "Dark2",
+  caption = NULL,
+  title = NULL,
+  subtitle = NULL,
+  pairwise.display = "none",
+  results.subtitle = FALSE
+)
+dev.off()
+
+corr_vio2
+corr_vio3
+
+```
+
+
+```{r boxplot_RAW_correlation_LME}
+
+corr_data_boats <- stats_byLME_byModel_RAW %>%
+  filter(MEMs == 'boats')
+
+p1 <- ggplot(corr_data_boats, aes(x = Model, y = Correlation, fill = Model))+
+  geom_boxplot()+
+  my_theme+
+  scale_fill_manual(values = c("#0571B0", "#92C5DE","#CA0020", "#F49582"), 
+                    labels = c("BOATS GFDL-ESM2M", 
+                               "BOATS GFDL-ESM4", 
+                               "BOATS IPSL-CM5A-LR", 
+                               "BOATS IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+corr_data_ecoocean <- stats_byLME_byModel_RAW %>%
+  filter(MEMs == 'ecoocean')
+
+p2 <- ggplot(corr_data_ecoocean, aes(x = Model, y = Correlation, fill = Model))+
+  geom_boxplot()+
+  my_theme+
+  scale_fill_manual(values = c("#31A354", "#A1D99B", "#E6550D", "#FDBE85"),
+                    labels = c("EcoOcean GFDL-ESM2M", 
+                               "EcoOcean GFDL-ESM4",
+                               "EcoOcean IPSL-CM5A-LR",
+                               "EcoOcean IPSL-CM6A-LR"))+
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank())
+
+
+(p1 / p2+
+    plot_annotation(tag_levels = 'A'))
+
+ggsave(filename = here("output/figures/plot_box_correlation_RAW_LME.jpg"), dpi = 600, width = 18, height =18, units="cm")
+
+```

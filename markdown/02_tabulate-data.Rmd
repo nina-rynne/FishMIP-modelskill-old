@@ -101,6 +101,9 @@ obs_tc_byYear_global_norm <- rbind(reconstructedSAU_byYear_global, reconstructed
 
 ```
 
+##############################################################
+NORMALISED STATS FUNCTIONS
+##############################################################
 
 ```{r LME_stats_function}
 
@@ -240,6 +243,149 @@ for(i in 1:length(mems)){
 
 ```
 
+##############################################################
+RAW STATS FUNCTIONS
+##############################################################
+
+```{r LME_stats_RAW_function}
+
+# Calculate Statistical Metrics Function LME Level
+
+# Function Name: getLMEstats
+# This function calculates statstical metrics by LME/MEM/ESM
+# @param: mem_name Marine Ecosystem Model, a character
+# @param: esm_name Earth System Model, a character
+# @return: a dataframe of statistical metrics by LME/MEM/ESM
+# -------------------------------------------------------
+
+getLMEStatsRAW <- function(mem_name, esm_name) {
+  
+    # Loop through all 66 LMEs, filtering by MEM & ESM
+    for(k in 1:66) {
+      LMEstats <- tc_byYear_withWAT_LME_norm %>%
+        filter(MEMs == mem_name,
+               ESMs == esm_name,
+               LME == k)
+      
+      # Create a vector of results for specified LME/MEM/ESM
+      LMEstats_vector <- data.frame("MEMs" = mem_name,
+                                    "ESMs" = esm_name,
+                                    "Variable" = "tc_byYear",
+                                    "LME" = k,
+                                    "NAME" = unique(LMEstats$NAME),
+                                    "Model" = unique(LMEstats$Model),
+                                    "Correlation" = cor(LMEstats$rec_obs, LMEstats$Value),
+                                    "RMSE" = rmse(LMEstats$rec_obs, LMEstats$Value),
+                                    "AAE" = mae(LMEstats$rec_obs, LMEstats$Value),
+                                    "Bias" = bias(LMEstats$rec_obs, LMEstats$Value),
+                                    "ReliabilityIndex" = GRI(LMEstats$rec_obs, LMEstats$Value),
+                                    "ModellingEfficiency" = NSeff(LMEstats$rec_obs, LMEstats$Value)
+                                    )
+      
+      # Create Dataframe for Results, or Append if Exists
+      if(!exists("LMEstats_table")) {
+        LMEstats_table <- LMEstats_vector
+      }else{
+        LMEstats_table <- rbind(LMEstats_table, LMEstats_vector)
+      } # End if/else loop
+
+    } # End for loop
+ 
+   return(LMEstats_table)
+   
+  } # End function
+
+```
+
+```{r global_stats_RAW_function}
+
+# Calculate Statistical Metrics Function Global Level
+
+# Function Name: getGlobalStats
+# This function calculates statstical metrics by MEM/ESM on global level data
+# @param: mem_name Marine Ecosystem Model, a character
+# @param: esm_name Earth System Model, a character
+# @return: a dataframe of statistical metrics by MEM/ESM
+# -------------------------------------------------------
+
+getGlobalStatsRAW <- function(mem_name, esm_name) {
+
+  # Filtering by MEM & ESM
+  globalstats <- tc_byYear_withWAT_global_norm %>%
+    filter(MEMs == mem_name,
+           ESMs == esm_name,
+           Element == "tc_tonnes_year",
+           LME == "0") 
+  
+  # Create a vector of results for specified MEM/ESM
+  globalstats_vector <- data.frame("MEMs" = mem_name,
+                                   "ESMs" = esm_name,
+                                   "Variable" = "tc_byYear",
+                                   "NAME" = "Global",
+                                   "Model" = unique(globalstats$Model),
+                                   "Correlation" = cor(globalstats$rec_obs, globalstats$Value),
+                                   "RMSE" = rmse(globalstats$rec_obs, globalstats$Value),
+                                   "AAE" = mae(globalstats$rec_obs, globalstats$Value),
+                                   "Bias" = bias(globalstats$rec_obs, globalstats$Value),
+                                   "ReliabilityIndex" = GRI(globalstats$rec_obs, globalstats$Value),
+                                   "ModellingEfficiency" = NSeff(globalstats$rec_obs, globalstats$Value)
+                                   )
+  
+  return(globalstats_vector)
+  
+  } # end function
+
+```
+
+```{r call_LME_stats_RAW_function}
+
+# Call Statistical Metrics Function LME Level
+# -------------------------------------------------------
+
+for(i in 1:length(mems)){
+  for(j in 1:length(esms)){
+    
+    LMEstats_RAW_return <- getLMEStatsRAW(mem_name = mems[i],
+                                   esm_name = esms[j])
+    
+    # decide how to handle data returned from function
+    
+    if(!exists("stats_byLME_byModel_RAW")){
+        stats_byLME_byModel_RAW <- LMEstats_RAW_return
+      }else{
+        stats_byLME_byModel_RAW <- rbind(stats_byLME_byModel_RAW, LMEstats_RAW_return)
+      } # end if/else loop
+
+  } # end esm loop
+  } # end mem loop
+
+```
+
+```{r call_global_stats_RAW_function}
+
+# Call Statistical Metrics Function Global Level
+# -------------------------------------------------------
+
+for(i in 1:length(mems)){
+  for(j in 1:length(esms)){
+    
+    globalstats_RAW_return <- getGlobalStatsRAW(mem_name = mems[i],
+                                  esm_name = esms[j])
+    
+    # decide how to handle data returned from function
+    
+    if(!exists("stats_global_byModel_RAW")){
+        stats_global_byModel_RAW <- globalstats_RAW_return
+      }else{
+        stats_global_byModel_RAW <- rbind(stats_global_byModel_RAW, globalstats_RAW_return)
+      } # end if/else loop
+
+  } # end esm loop
+  } # end mem loop
+
+```
+
+
 ```{r stats_shapefile}
 
 # Apply Standard Shapefile to LME Level Statistics
@@ -275,6 +421,12 @@ saveRDS(object = stats_byLME_shaped_norm, file = here("output/stats_byLME_shaped
 
 # observed values only, WAT and SAU 
 saveRDS(object = obs_tc_byYear_global_norm, file = here("output/obs_tc_byYear_global_norm.rds"))
+
+# statistical test results by LME
+saveRDS(object = stats_byLME_byModel_RAW, file = here("output/stats_byLME_byModel_RAW.rds"))
+
+# statistical test results, globally
+saveRDS(object = stats_global_byModel_RAW, file = here("output/stats_global_byModel_RAW.rds"))
 
 ```
 
