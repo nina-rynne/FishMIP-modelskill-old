@@ -3,6 +3,8 @@ title: "03_generate-plots"
 author: "Nina Rynne"
 output: html_document
 date: "2023-03-22"
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -65,7 +67,7 @@ obs <- unlist(read.csv(here("data/parameters/observations.csv"), header = FALSE)
 
 # bring in needed dataframes for plotting.
 
-tc_byYear_withObs <- readRDS(here("output/tc_byYear_withObs.rds"))
+tc_byYear_withObs <- readRDS(here("output/tc_byYear_withObs.rds")) 
 mod_tc_byYear <- readRDS(here("output/mod_tc_byYear.rds"))
 stats_byLME_byModel <- readRDS(here("output/stats_byLME_byModel.rds"))
 stats_global_byModel <- readRDS(here("output/stats_global_byModel.rds"))
@@ -307,7 +309,6 @@ ESM_names <- c('gfdl-esm2m' = "GFDL-ESM2M",
                'ipsl-cm5a-lr' = "IPSL-CM5A-LR", 
                'ipsl-cm6a-lr' = "IPSL-CM6A-LR")
 
-
 gg_map_corr <- ggplot() +
   geom_sf(data = stats_byLME_shaped, aes(fill = Correlation, geometry = geometry), size = NA) +
   scale_fill_gradient2(low ="red", mid = "white", high = "blue", midpoint = 0, limits = c(-1,1), breaks = c(-1, 0, 1), name = "Correlation\n") +
@@ -327,9 +328,7 @@ gg_map_corr <- ggplot() +
         )
 
 
-ggsave(plot = gg_map_corr, filename = here("output/figures/LMEmap_correlation.jpg"), 
+ggsave(plot = gg_map_corr, filename = here("output/figures/LMEmap_correlation.jpg"),
        device = "jpg", dpi = 600, width = 15, height = 12, units="cm")
 
-
 ```
-
