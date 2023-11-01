@@ -1,0 +1,285 @@
+---
+title: "04_normalise-data"
+author: "Nina Rynne"
+date: "2023-09-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries}
+
+# Libraries used
+# -------------------------------------------------------
+library(tidyr)
+library(dplyr)
+library(here)
+library(stringr)
+library(forcats)
+library(qualV)
+library(topmodel)
+library(Metrics)
+library(sf)
+
+```
+
+```{r arguments}
+
+# Parameters for File and Data Management
+# -------------------------------------------------------
+
+# Load lists of parameters from CSV files
+esms <- unlist(read.csv(here("data/parameters/esms.csv"), header = FALSE))
+mems <- unlist(read.csv(here("data/parameters/mems.csv"), header = FALSE))
+element <- unlist(read.csv(here("data/parameters/type.csv"), header = FALSE))
+element_long <- unlist(read.csv(here("data/parameters/type_longname.csv"), header = FALSE))
+obs <- unlist(read.csv(here("data/parameters/observations.csv"), header = FALSE))
+
+```
+
+```{r load}
+
+# Load Model Output and Reconstructed Catch Yearly Data
+# -------------------------------------------------------
+modeloutputs_byYear <- read.csv(here("output/modeloutputs_yearly.csv"))
+reconstructedWAT_byYear_global <- read.csv(here("output/reconstructedcatch_WAT_global.csv"))
+reconstructedSAU_byYear_global <- read.csv(here("output/reconstructedcatch_SAU_global.csv"))
+reconstructedWAT_byYear_LME <- read.csv(here("output/reconstructedcatch_WAT_LME.csv"))
+
+# Load Global Shapefile
+lme_shapefile = st_read(here("data/shapefile/LMEs66.shp")) 
+
+```
+
+```{r z-score}
+
+# Normalise Underlying Data
+# This section normalises the modelled and observed total catch data
+# for further analysis. Data is z-score normalised
+# -------------------------------------------------------
+
+# Normalise Global Level Data
+tc_byYear_withWAT_global_z <- modeloutputs_byYear %>%
+  filter(Element == "tc_tonnes_year") %>% # only total catch
+  filter(LME == "0") %>% # only global level data
+  left_join(reconstructedWAT_byYear_global, by = join_by(LME, Year)) %>% # add Watson observations
+  mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM ID combined
+  # normalise total catch observations against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
+  group_by(Model) %>%
+  mutate(rec_obs_z = (rec_obs - mean(rec_obs))/sd(rec_obs)) %>%
+  # normalise total catch projections against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
+  mutate(proj_tc_z = (Value - mean(Value))/sd(Value))
+
+# Normalise LME Level Data
+tc_byYear_withWAT_LME_z <- modeloutputs_byYear %>%
+  filter(Element == "tc_tonnes_year") %>% # only total catch
+  filter(LME !=0) %>% # only LME level data
+  left_join(reconstructedWAT_byYear_LME, by = join_by(LME, Year)) %>% # add Watson observations
+  mutate("Model" = paste(MEMs, ESMs)) %>% # create column for MEM & ESM ID combined
+  # normalise total catch observations against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
+  group_by(LME, Model, Source) %>%
+  mutate(rec_obs_z = (rec_obs - mean(rec_obs))/sd(rec_obs)) %>%
+  # normalise total catch projections against first 5 years (starting 1971 for CMIP5, 1950 for CMIP6)
+  mutate(proj_tc_z = (Value - mean(Value))/sd(Value))
+
+
+# Combine and Normalise Reconstructed Observations Data
+obs_tc_byYear_global_z <- rbind(reconstructedSAU_byYear_global, reconstructedWAT_byYear_global) %>%
+  group_by(LME, Source) %>%
+  mutate(rec_obs_z = (rec_obs - mean(rec_obs))/sd(rec_obs))
+
+
+```
+
+
+##############################################################
+Z-SCORE STATS FUNCTIONS
+##############################################################
+
+```{r LME_stats_function_Z}
+
+# Calculate Statistical Metrics Function LME Level
+
+# Function Name: getLMEstats
+# This function calculates statstical metrics by LME/MEM/ESM
+# @param: mem_name Marine Ecosystem Model, a character
+# @param: esm_name Earth System Model, a character
+# @return: a dataframe of statistical metrics by LME/MEM/ESM
+# -------------------------------------------------------
+
+getLMEStats <- function(mem_name, esm_name) {
+  
+    # Loop through all 66 LMEs, filtering by MEM & ESM
+    for(k in 1:66) {
+      LMEstats <- tc_byYear_withWAT_LME_z %>%
+        filter(MEMs == mem_name,
+               ESMs == esm_name,
+               LME == k)
+      
+      # Create a vector of results for specified LME/MEM/ESM
+      LMEstats_vector_z <- data.frame("MEMs" = mem_name,
+                                    "ESMs" = esm_name,
+                                    "Variable" = "tc_byYear",
+                                    "LME" = k,
+                                    "NAME" = unique(LMEstats$NAME),
+                                    "Model" = unique(LMEstats$Model),
+                                    "Correlation" = cor(LMEstats$rec_obs_z, LMEstats$proj_tc_z),
+                                    "RMSE" = rmse(LMEstats$rec_obs_z, LMEstats$proj_tc_z),
+                                    "AAE" = mae(LMEstats$rec_obs_z, LMEstats$proj_tc_z),
+                                    "Bias" = bias(LMEstats$rec_obs_z, LMEstats$proj_tc_z),
+                                    "ReliabilityIndex" = GRI(LMEstats$rec_obs_z, LMEstats$proj_tc_z),
+                                    "ModellingEfficiency" = NSeff(LMEstats$rec_obs_z, LMEstats$proj_tc_z)
+                                    )
+      
+      # Create Dataframe for Results, or Append if Exists
+      if(!exists("LMEstats_table_z")) {
+        LMEstats_table_z <- LMEstats_vector_z
+      }else{
+        LMEstats_table_z <- rbind(LMEstats_table_z, LMEstats_vector_z)
+      } # End if/else loop
+
+    } # End for loop
+ 
+   return(LMEstats_table_z)
+   
+  } # End function
+
+```
+
+```{r global_stats_function_Z}
+
+# Calculate Statistical Metrics Function Global Level
+
+# Function Name: getGlobalStats
+# This function calculates statstical metrics by MEM/ESM on global level data
+# @param: mem_name Marine Ecosystem Model, a character
+# @param: esm_name Earth System Model, a character
+# @return: a dataframe of statistical metrics by MEM/ESM
+# -------------------------------------------------------
+
+getGlobalStats <- function(mem_name, esm_name) {
+
+  # Filtering by MEM & ESM
+  globalstats <- tc_byYear_withWAT_global_z %>%
+    filter(MEMs == mem_name,
+           ESMs == esm_name,
+           Element == "tc_tonnes_year",
+           LME == "0") 
+  
+  # Create a vector of results for specified MEM/ESM
+  globalstats_vector_z <- data.frame("MEMs" = mem_name,
+                                   "ESMs" = esm_name,
+                                   "Variable" = "tc_byYear",
+                                   "NAME" = "Global",
+                                   "Model" = unique(globalstats$Model),
+                                   "Correlation" = cor(globalstats$rec_obs_z, globalstats$proj_tc_z),
+                                   "RMSE" = rmse(globalstats$rec_obs_z, globalstats$proj_tc_z),
+                                   "AAE" = mae(globalstats$rec_obs_z, globalstats$proj_tc_z),
+                                   "Bias" = bias(globalstats$rec_obs_z, globalstats$proj_tc_z),
+                                   "ReliabilityIndex" = GRI(globalstats$rec_obs_z, globalstats$proj_tc_z),
+                                   "ModellingEfficiency" = NSeff(globalstats$rec_obs_z, globalstats$proj_tc_z)
+                                   )
+  
+  return(globalstats_vector_z)
+  
+  } # end function
+
+```
+
+```{r call_LME_stats_function_Z}
+
+# Call Statistical Metrics Function LME Level
+# -------------------------------------------------------
+
+for(i in 1:length(mems)){
+  for(j in 1:length(esms)){
+    
+    LMEstats_return_z <- getLMEStats(mem_name = mems[i],
+                                   esm_name = esms[j])
+    
+    # decide how to handle data returned from function
+    
+    if(!exists("stats_byLME_byModel_z")){
+        stats_byLME_byModel_z <- LMEstats_return_z
+      }else{
+        stats_byLME_byModel_z <- rbind(stats_byLME_byModel_z, LMEstats_return_z)
+      } # end if/else loop
+
+  } # end esm loop
+  } # end mem loop
+
+```
+
+```{r call_global_stats_function_Z}
+
+# Call Statistical Metrics Function Global Level
+# -------------------------------------------------------
+
+for(i in 1:length(mems)){
+  for(j in 1:length(esms)){
+    
+    globalstats_return_z <- getGlobalStats(mem_name = mems[i],
+                                  esm_name = esms[j])
+    
+    # decide how to handle data returned from function
+    
+    if(!exists("stats_global_byModel_norm")){
+        stats_global_byModel_z <- globalstats_return_z
+      }else{
+        stats_global_byModel_z <- rbind(stats_global_byModel_z, globalstats_return_z)
+      } # end if/else loop
+
+  } # end esm loop
+  } # end mem loop
+
+```
+
+
+```{r stats_shapefile}
+
+# Apply Standard Shapefile to LME Level Statistics
+# -------------------------------------------------------
+stats_byLME_shaped_z <- merge(
+  lme_shapefile,
+  stats_byLME_byModel_z,
+  by.y = "NAME",
+  by.x = "LME_NAME")
+
+```
+
+
+```{r save_zscore}
+
+# Save Datafiles for Plotting
+# -------------------------------------------------------
+
+# modelled and observed catch by year, globally
+saveRDS(object = tc_byYear_withWAT_global_z, file = here("output/tc_byYear_withWAT_global_z.rds"))
+
+# modelled and observed catch by year, by LME
+saveRDS(object = tc_byYear_withWAT_LME_z, file = here("output/tc_byYear_withWAT_LME_z.rds"))
+
+# statistical test results by LME
+saveRDS(object = stats_byLME_byModel_z, file = here("output/stats_byLME_byModel_z.rds"))
+
+# statistical test results, globally
+saveRDS(object = stats_global_byModel_z, file = here("output/stats_global_byModel_z.rds"))
+
+# statistical test results by LME, adjusted for shape file to use for map plots
+saveRDS(object = stats_byLME_shaped_z, file = here("output/stats_byLME_shaped_z.rds"))
+
+# observed values only, WAT and SAU 
+saveRDS(object = obs_tc_byYear_global_z, file = here("output/obs_tc_byYear_global_z.rds"))
+
+
+```
+
+```{r export}
+
+# Export Statistics at Global Level for Manuscript
+# -------------------------------------------------------
+write.csv(stats_global_byModel_z, here("output/globalstats_z.csv"), row.names = TRUE)
+
+```
