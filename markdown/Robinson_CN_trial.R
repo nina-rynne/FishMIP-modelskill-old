@@ -1,0 +1,214 @@
+
+#rm(list = ls())
+
+library(here)
+library(rnaturalearth)
+library(sf)
+library(ggplot2)
+library(tidyverse)
+library(raster)
+library(colorspace)
+library(parallel)
+library(patchwork)
+
+## load land and define projections ----
+
+world <- ne_countries(scale = 'small', returnclass = 'sf')
+robCRS<-"+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+
+# can center around antimeridian too but lots of issues... 
+# see for some solutions: # https://stackoverflow.com/questions/56146735/visual-bug-when-changing-robinson-projections-central-meridian-with-ggplot2
+# robCRS<-'+proj=robin +lon_0=180 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+
+# ggplot() +
+#   geom_sf(data = world)+
+#   coord_sf(crs= robCRS, expand = F) 
+
+## function to plot all models ----
+
+stats_byLME_shaped <- readRDS(here("output/stats_byLME_shaped.rds"))
+
+# add Ocean polygon  
+# https://stackoverflow.com/questions/75860459/change-ocean-color-in-robinson-projection-map
+ocean <- st_polygon(
+  list(
+    cbind(
+      c(seq(-180, 179, len = 100), rep(180, 100), seq(179, -180, len = 100), rep(-180, 100)),
+      c(rep(-90, 100), seq(-89, 89, len = 100), rep(90, 100), seq(89, -90, len = 100))))) %>%
+  st_sfc(crs = "WGS84") %>%
+  st_as_sf()
+
+plot_correlation<-function(data, 
+                           ocean = ocean, 
+                           robCRS = robCRS){
+  
+  # # trial 
+  # data = models[[1]]
+  
+  # # PROBLEM when transformed in Robinson: horizontal lines across the globe
+  # # SOLUTION 
+  # # https://stackoverflow.com/questions/55162548/is-there-a-better-way-for-handling-spatialpolygons-that-cross-the-antimeridian
+  # 
+  # data2<-data %>%
+  #   st_wrap_dateline(options = c("WRAPDATELINE=YES")) %>%
+  #   st_union()
+  #
+  # ERROR
+  # Error in wk_handle.wk_wkb(wkb, s2_geography_writer(oriented = oriented,  : 
+  # Loop 0 is not valid: Edge 11604 has duplicate vertex with edge 11610
+  #
+  # SOLUTION 
+  # https://gis.stackexchange.com/questions/404385/r-sf-some-edges-are-crossing-in-a-multipolygon-how-to-make-it-valid-when-using also see SO code 
+  sf_use_s2(FALSE)
+  # 
+  # # ERROR 
+  # # although coordinates are longitude/latitude, st_union assumes that they are planar
+  # # Warning messages:
+  # #   1: In CPL_wrap_dateline(st_geometry(x), options, quiet) :
+  # #   GDAL Error 1: TopologyException: Input geom 0 is invalid: Ring Self-intersection at or near point -161.34730529788163 58.66580963120532 at -161.34730529788163 58.66580963120532
+  # # 2: In CPL_wrap_dateline(st_geometry(x), options, quiet) :
+  # #   GDAL Error 1: TopologyException: Input geom 0 is invalid: Ring Self-intersection at or near point -161.34730529788163 58.66580963120532 at -161.34730529788163 58.66580963120532
+  # 
+  # # SOLUTION
+  # # https://stackoverflow.com/questions/66584191/sfst-intersection-virtually-random-error-action
+  # data2<-data %>%
+  #   sf::st_buffer(0) %>% 
+  #   st_wrap_dateline(options = c("WRAPDATELINE=YES")) %>%
+  #   st_union()
+  # 
+  # # WARNING 
+  # # dist is assumed to be in decimal degrees (arc_degrees).
+  # # although coordinates are longitude/latitude, st_union assumes that they are planar
+  # # Warning message:
+  # #   In st_buffer.sfc(st_geometry(x), dist, nQuadSegs, endCapStyle = endCapStyle,  :
+  # #                      st_buffer does not correctly buffer longitude/latitude data
+  # 
+  # # ALSO all attributes are missing
+  # # SOLUTION: remove st_union() 
+  data2<-data %>%
+    sf::st_buffer(0) %>% 
+    st_wrap_dateline(options = c("WRAPDATELINE=YES"))
+  #
+  # still WARNING 
+  # dist is assumed to be in decimal degrees (arc_degrees).
+  # Warning message:
+  #   In st_buffer.sfc(st_geometry(x), dist, nQuadSegs, endCapStyle = endCapStyle,  :
+  #                      st_buffer does not correctly buffer longitude/latitude data
+
+  # make plot 
+  gg_map_corr<-ggplot()+
+    geom_sf(data = world, color = NA, fill = "grey90", size = 0.15)+
+    geom_sf(data = data2, aes(fill = Correlation))+
+    
+    # scale_fill_gradient2 
+    # OK but not great 
+    scale_fill_gradient2(
+      low = "#CA0020", # red
+      mid = "#F7F7F7", 
+      high = "#0571B0", # blue
+      midpoint = 0, 
+      limits = c(-1,1), 
+      breaks = c(-1,-0.5, 0, 0.5, 1), 
+      guide = guide_colorbar(
+        title = "Correlation",
+        title.position = "top",
+        title.hjust = 0.5))+
+    
+    # HCL-Based Continuous Flexible Diverging Scales
+    # great but cannot define limits ... 
+    
+    # so pick colors for the above based on this palette: 
+    # hcl_palettes(plot = TRUE)
+    # diverging_hcl(3, "Blue-Red 2")
+
+    # scale_fill_continuous_divergingx(palette = 'Geyser', # ArmyRose; Geyser
+    #                                  mid = 0,
+    #                                  guide = guide_colorbar(
+    #                                    title = "Correlation",
+    #                                    title.position = "top",
+    #                                    title.hjust = 0.5,
+    #                                    # limits=c(-1, 1),
+    #                                    # oob = scales::squish,
+    #                                    rev = TRUE), # if palette = 'Geyser', this puts green on top and red on bottom 
+    #                                  na.value = "grey50") +
+    
+    theme_bw()+
+    theme(
+      panel.grid.major = element_line(color = 'gray75', # instead of ocean and/or to have main loat/lon lines
+                                      linetype = "dashed",
+                                      linewidth = 0.25),
+      panel.background = element_rect(fill = 'white'),
+      panel.grid = element_blank(),
+      panel.border = element_blank(),
+      text = element_text(size = 7), 
+      legend.title=element_text(size = 8), 
+      legend.text=element_text(size = 7),
+      legend.key.height = unit(0.2, "cm"), 
+      legend.key.width = unit(1, "cm"),
+      legend.position= 'bottom')+
+    geom_sf(data = ocean, fill = NA, color = "black")+ 
+    coord_sf(crs= robCRS, expand = F) 
+
+  ## add ocean and adjust as above 
+  return(gg_map_corr = gg_map_corr)
+}
+
+## run function above in // ----
+models<-split(stats_byLME_shaped,stats_byLME_shaped$Model)
+# names(models)
+
+# # try function for one model only
+# plot_correlation(data = models[[1]],
+#                  ocean = ocean,
+#                  robCRS = robCRS)
+
+# do in // 
+library(tictoc)
+tic()
+p1<-lapply(models, function(x) plot_correlation(x, ocean = ocean, robCRS = robCRS))
+toc() # 18 sec 
+names(p1)<-names(models)
+
+# check plots 
+# p1$`boats gfdl-esm2m`
+
+### print ----
+
+# set plot order and add panel notations - better way of doing this but no time
+# names(models)
+new_names<-(c("a) BOATS GFDL-ESM2M",
+            "c) BOATS IPSL-CM5A-LR",
+            "e) EcoOcean GFDL-ESM2M",
+            "g) EcoOcean IPSL-CM5A-LR",
+            "b) BOATS GFDL-ESM4",
+            "d) BOATS IPSL-CM6A-LR",
+            "f) EcoOcean GFDL-ESM4",
+            "h) EcoOcean IPSL-CM6A-LR"))
+
+names(p1)<-new_names
+
+for(i in 1:length(p1)){
+  p1[[i]]<-p1[[i]]+
+    ggtitle(names(p1)[[i]])+
+    theme(plot.title = element_text(hjust = 0, vjust = 2, size = 9))
+}
+
+# p1$`a) BOATS GFDL-esm2m`
+
+final<-p1$`a) BOATS GFDL-ESM2M` +
+  p1$`b) BOATS GFDL-ESM4`+
+  p1$`c) BOATS IPSL-CM5A-LR`+
+  p1$`d) BOATS IPSL-CM6A-LR`+
+  p1$`e) EcoOcean GFDL-ESM2M`+
+  p1$`f) EcoOcean GFDL-ESM4`+
+  p1$`g) EcoOcean IPSL-CM5A-LR`+
+  p1$`h) EcoOcean IPSL-CM6A-LR`+
+  plot_layout(ncol = 2, guides = 'collect') & theme(legend.position = 'bottom')
+
+name = paste(here("output/figures/"), Sys.Date(),"Fig5.pdf", sep = "")
+
+
+
+pdf(name, width = 7, height = 8, bg = "transparent")  
+final
+dev.off()
