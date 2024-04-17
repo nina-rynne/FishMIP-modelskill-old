@@ -227,6 +227,7 @@ stats_byLME_shaped <- merge(
 ```
 
 
+
 ```{r save}
 
 # Save Datafiles for Plotting
@@ -266,4 +267,7 @@ write.csv(stats_global_byModel, here("output/globalstats.csv"), row.names = TRUE
 
 write.csv(tc_byYear_withWAT_global, here("output/globaldetails.csv"), row.names = TRUE)
 
+write.csv(stats_byLME_byModel, here("output/LMEstats.csv"), row.names = TRUE)
+
 ```
+

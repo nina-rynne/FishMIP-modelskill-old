@@ -184,7 +184,7 @@ for(i in 1:length(mems)){
 
       # Get current file paths
       curr_file <- (list.files(
-        path = here("data/model-output/"),
+        path = here("data/model-output/nobc/"),
         pattern = glob2rx(paste(mems[i], "*", esms[j], "*",element[k], "*",sep = "")),
         full.names = TRUE))
 
